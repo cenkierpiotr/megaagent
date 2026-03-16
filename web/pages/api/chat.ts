@@ -11,12 +11,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!client.isOpen) await client.connect();
 
   if (req.method === 'POST') {
-    const { message } = req.body;
+    const { message, model, history } = req.body;
     
     const task = {
         source: "web",
         chat_id: "web_user",
         prompt: message,
+        model: model || "llama3",
+        history: history || [],
         priority: "P2"
     };
 

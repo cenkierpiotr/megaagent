@@ -73,19 +73,35 @@ class ClawCore:
 
     async def process_task(self, task_data):
         try:
-            task_dict = json.loads(task_data.decode('utf-8').replace("'", "\"")) # Basic fix for single quotes in stringified dict
+            task_dict = json.loads(task_data.decode('utf-8').replace("'", "\""))
             prompt = task_dict.get("prompt")
             source = task_dict.get("source")
             chat_id = task_dict.get("chat_id")
+            selected_model = task_dict.get("model", "llama3")
+            history = task_dict.get("history", [])
             
-            print(f"🚀 Processing task from {source}: {prompt}")
+            print(f"🚀 Processing task from {source} using {selected_model}: {prompt}")
             
-            # Simple CrewAI execution
-            crew_task = Task(description=prompt, agent=self.manager, expected_output="Actionable response or result.")
+            # Update LLM dynamically for this task
+            task_llm = Ollama(
+                model=selected_model,
+                base_url=os.getenv("OLLAMA_BASE_URL"),
+                num_gpu=self.governor.get_llm_config()["options"]["num_gpu"]
+            )
+            
+            self.manager.llm = task_llm
+            self.coder.llm = task_llm
+
+            # Format history for context
+            context_prompt = f"History:\n" + "\n".join([f"{m['role']}: {m['content']}" for m in history[-5:]])
+            full_prompt = f"{context_prompt}\nUser: {prompt}"
+            
+            # CrewAI execution
+            crew_task = Task(description=full_prompt, agent=self.manager, expected_output="Conversational response with action details.")
             crew = Crew(agents=[self.manager, self.coder], tasks=[crew_task], process=Process.sequential)
             result = crew.kickoff()
             
-            # Publish result back to Redis for Gateway/Web to pick up
+            # Publish result back
             response = {
                 "source": source,
                 "chat_id": chat_id,
