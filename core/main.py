@@ -1,6 +1,7 @@
 import os
 import redis
 import json
+import asyncio
 from crewai import Agent, Task, Crew, Process
 from langchain_community.llms import Ollama
 
