@@ -28,6 +28,30 @@ services:
     networks:
       - claw_network
 
+  # Next.js Dashboard
+  web:
+    build: ./web
+    container_name: claw_web
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - REDIS_URL=redis://redis:6379/0
+    networks:
+      - claw_network
+
+  # Telegram & Gateway
+  gateway:
+    build: ./gateway
+    container_name: claw_gateway
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - REDIS_URL=redis://redis:6379/0
+      - TELEGRAM_ADMIN_CHAT_ID=${TELEGRAM_ADMIN_CHAT_ID}
+    networks:
+      - claw_network
+
   multimodal:
     build: ./multimodal
     container_name: claw_multimodal
