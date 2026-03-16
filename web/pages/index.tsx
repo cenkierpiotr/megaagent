@@ -7,6 +7,7 @@ export default function Dashboard() {
   const [status, setStatus] = useState("Idle");
   const [hwMode, setHwMode] = useState("auto");
   const [selectedModel, setSelectedModel] = useState("llama3");
+  const [selectedCapability, setSelectedCapability] = useState("text");
   const [models, setModels] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -29,6 +30,7 @@ export default function Dashboard() {
       body: JSON.stringify({ 
         message: inputText, 
         model: selectedModel,
+        capability: selectedCapability,
         history: messages 
       })
     });
@@ -36,7 +38,7 @@ export default function Dashboard() {
     // Auto-update to simulation/placeholder while waiting for Redis sync
     setTimeout(() => {
        setIsLoading(false);
-       setMessages(prev => [...prev, { role: 'assistant', content: "🤖 Polecenie wysłane do Agenta. Przetwarzam..." }]);
+       setMessages(prev => [...prev, { role: 'assistant', content: `🤖 Zadanie [${selectedCapability.toUpperCase()}] zostało przekazane do przetwornika. Poczekaj na wynik.` }]);
     }, 1500);
   };
 
@@ -48,6 +50,13 @@ export default function Dashboard() {
       body: JSON.stringify({ mode })
     });
   };
+
+  const capabilities = [
+    { id: 'text', label: 'Tekst', icon: '📝' },
+    { id: 'graphics', label: 'Grafika', icon: '🎨' },
+    { id: 'video', label: 'Wideo', icon: '🎬' },
+    { id: 'audio', label: 'Audio', icon: '🎵' },
+  ];
 
   return (
     <div className="flex h-screen bg-[#131314] text-[#e3e3e3] font-sans selection:bg-blue-500/30">
@@ -64,8 +73,8 @@ export default function Dashboard() {
         
         <div className="flex-1 overflow-y-auto space-y-2">
           <p className="text-xs font-semibold text-[#80868b] px-3 mb-2 uppercase tracking-wider">Recent</p>
+          <div className="hover:bg-[#2b2c2e] p-2 rounded-lg cursor-pointer text-sm truncate px-3">Zadania multimodalne</div>
           <div className="hover:bg-[#2b2c2e] p-2 rounded-lg cursor-pointer text-sm truncate px-3">System status check</div>
-          <div className="hover:bg-[#2b2c2e] p-2 rounded-lg cursor-pointer text-sm truncate px-3">Optimization logs</div>
         </div>
 
         <div className="mt-auto pt-4 border-t border-[#333537]">
@@ -106,15 +115,15 @@ export default function Dashboard() {
               <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl rotate-12">
                  <span className="text-3xl">🦾</span>
               </div>
-              <h2 className="text-3xl font-medium text-center">How can I help you today?</h2>
+              <h2 className="text-3xl font-medium text-center">W czym mogę pomóc?</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl">
-                <div onClick={() => setInputText("Analyze system resources")} className="bg-[#1e1f20] hover:bg-[#2b2c2e] p-4 rounded-2xl border border-[#333537] cursor-pointer transition">
-                   <p className="text-sm font-medium mb-1">Analyze system</p>
-                   <p className="text-xs text-[#80868b]">Check health and VRAM status</p>
+                <div onClick={() => { setSelectedCapability('graphics'); setInputText("Stwórz futurystyczny portret robota"); }} className="bg-[#1e1f20] hover:bg-[#2b2c2e] p-4 rounded-2xl border border-[#333537] cursor-pointer transition">
+                   <p className="text-sm font-medium mb-1">Generowanie Grafiki</p>
+                   <p className="text-xs text-[#80868b]">Użyj DALL-E lub Stable Diffusion</p>
                 </div>
-                <div onClick={() => setInputText("Automate LinkedIn scraper")} className="bg-[#1e1f20] hover:bg-[#2b2c2e] p-4 rounded-2xl border border-[#333537] cursor-pointer transition">
-                   <p className="text-sm font-medium mb-1">Automation</p>
-                   <p className="text-xs text-[#80868b]">Deploy Skyvern agent for search</p>
+                <div onClick={() => { setSelectedCapability('video'); setInputText("Zrenderuj animację loga Mega Agent"); }} className="bg-[#1e1f20] hover:bg-[#2b2c2e] p-4 rounded-2xl border border-[#333537] cursor-pointer transition">
+                   <p className="text-sm font-medium mb-1">Produkcja Wideo</p>
+                   <p className="text-xs text-[#80868b]">Twórz krótkie klipy i animacje</p>
                 </div>
               </div>
             </div>
@@ -128,21 +137,42 @@ export default function Dashboard() {
               </div>
             ))
           )}
-          {isLoading && <div className="p-4 text-[#80868b] animate-pulse">Thinking...</div>}
+          {isLoading && <div className="p-4 text-[#80868b] animate-pulse">Myślę...</div>}
         </div>
 
-        {/* Input */}
+        {/* Input & Capability Selector */}
         <div className="p-4 md:p-8">
-          <div className="max-w-3xl mx-auto relative">
-            <input 
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-              placeholder="Enter a prompt here..."
-              className="w-full bg-[#1e1f20] border border-[#333537] rounded-full py-4 px-6 pr-14 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all shadow-xl"
-            />
-            <button onClick={sendMessage} className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">↑</button>
+          <div className="max-w-3xl mx-auto space-y-4">
+            {/* Capability Pills */}
+            <div className="flex gap-2 justify-center mb-2">
+              {capabilities.map(cap => (
+                <button
+                  key={cap.id}
+                  onClick={() => setSelectedCapability(cap.id)}
+                  className={`px-4 py-2 rounded-full text-xs font-medium transition-all flex items-center gap-2 border ${selectedCapability === cap.id ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-[#1e1f20] border-[#333537] text-[#80868b] hover:border-[#525659]'}`}
+                >
+                  <span>{cap.icon}</span>
+                  {cap.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative group">
+              <input 
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                placeholder={selectedCapability === 'text' ? "Zadaj pytanie..." : `Opisz co chcesz wygenerować (${selectedCapability})...`}
+                className="w-full bg-[#1e1f20] border border-[#333537] rounded-full py-4 px-6 pr-14 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all shadow-xl"
+              />
+              <button 
+                onClick={sendMessage} 
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-blue-600 hover:bg-blue-500 rounded-full flex items-center justify-center transition-transform hover:scale-110 active:scale-95 shadow-lg"
+              >
+                <span className="text-xl">↑</span>
+              </button>
+            </div>
           </div>
         </div>
       </main>

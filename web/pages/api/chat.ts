@@ -11,7 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!client.isOpen) await client.connect();
 
   if (req.method === 'POST') {
-    const { message, model, history } = req.body;
+    const { message, model, history, capability } = req.body;
     
     const task = {
         source: "web",
@@ -19,6 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         prompt: message,
         model: model || "llama3",
         history: history || [],
+        capability: capability || "text",
         priority: "P2"
     };
 

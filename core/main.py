@@ -79,9 +79,24 @@ class ClawCore:
             chat_id = task_dict.get("chat_id")
             selected_model = task_dict.get("model", "llama3")
             history = task_dict.get("history", [])
+            capability = task_dict.get("capability", "text")
             
-            print(f"🚀 Processing task from {source} using {selected_model}: {prompt}")
+            print(f"🚀 Processing {capability} task from {source} using {selected_model}")
             
+            # Dynamic Agent adjustments based on capability
+            if capability == "graphics":
+                self.manager.goal = "Create high-quality visual assets and graphics."
+                self.manager.backstory = "Expert digital artist and designer."
+            elif capability == "video":
+                self.manager.goal = "Generate and edit motion graphics or video content."
+                self.manager.backstory = "Professional video editor and motion designer."
+            elif capability == "audio":
+                self.manager.goal = "Synthesize audio, voiceovers, or musical elements."
+                self.manager.backstory = "Expert sound engineer and audio producer."
+            else:
+                self.manager.goal = "Orchestrate all system tasks and manage hardware resources."
+                self.manager.backstory = "Primary intelligence of Claw-Omni-OS."
+
             # Update LLM dynamically for this task
             task_llm = Ollama(
                 model=selected_model,
@@ -93,11 +108,11 @@ class ClawCore:
             self.coder.llm = task_llm
 
             # Format history for context
-            context_prompt = f"History:\n" + "\n".join([f"{m['role']}: {m['content']}" for m in history[-5:]])
+            context_prompt = f"Selected Modal: {capability}\nHistory:\n" + "\n".join([f"{m['role']}: {m['content']}" for m in history[-5:]])
             full_prompt = f"{context_prompt}\nUser: {prompt}"
             
             # CrewAI execution
-            crew_task = Task(description=full_prompt, agent=self.manager, expected_output="Conversational response with action details.")
+            crew_task = Task(description=full_prompt, agent=self.manager, expected_output=f"Result for {capability} task.")
             crew = Crew(agents=[self.manager, self.coder], tasks=[crew_task], process=Process.sequential)
             result = crew.kickoff()
             
