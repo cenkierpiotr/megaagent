@@ -81,17 +81,45 @@ export default function Dashboard() {
 
       <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Terminal/Logs Section */}
-        <section className="lg:col-span-2 bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-2xl">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <span>📟</span> System Logs
-          </h2>
-          <div className="bg-black rounded-lg p-4 font-mono text-sm h-96 overflow-y-auto border border-slate-700">
-            {logs.map((log, i) => (
-              <div key={i} className="mb-1 text-green-400">
-                <span className="text-slate-500">[{new Date().toLocaleTimeString()}]</span> {log}
-              </div>
-            ))}
-            <div className="animate-pulse">_</div>
+        <section className="lg:col-span-2 flex flex-col gap-4">
+          <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-2xl flex-1 flex flex-col">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <span>📟</span> System Logs & Chat
+            </h2>
+            <div className="bg-black rounded-lg p-4 font-mono text-sm h-80 overflow-y-auto mb-4 border border-slate-700">
+              {logs.map((log, i) => (
+                <div key={i} className="mb-1 text-green-400">
+                  <span className="text-slate-500">[{new Date().toLocaleTimeString()}]</span> {log}
+                </div>
+              ))}
+              <div className="animate-pulse">_</div>
+            </div>
+            
+            {/* Chat Input */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Send mission command..."
+                className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500 transition"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const input = e.currentTarget;
+                    const val = input.value;
+                    if (!val) return;
+                    input.value = '';
+                    setLogs(prev => [...prev, `> ${val}`]);
+                    fetch('/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ message: val })
+                    });
+                  }
+                }}
+              />
+              <button className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition font-bold">
+                SEND
+              </button>
+            </div>
           </div>
         </section>
 
