@@ -55,22 +55,25 @@ class ClawCore:
             num_gpu=llm_config["options"]["num_gpu"]
         )
 
-    def setup_agents(self):
+        # Initialize Agents here to avoid uninitialized attribute errors
         self.manager = Agent(
             role='System Manager',
             goal='Orchestrate all system tasks and manage hardware resources.',
-            backstory='You are the primary intelligence of Claw-Omni-OS. You ensure efficient execution.',
+            backstory='You are the primary intelligence of Claw-Omni-OS.',
             llm=self.llm,
             verbose=True
         )
-        
         self.coder = Agent(
             role='Lead Developer',
-            goal='Write and debug code using OpenHands integration.',
-            backstory='Expert in Python and TypeScript, capable of terminal operations.',
+            goal='Write and debug code.',
+            backstory='Expert in Python and TypeScript.',
             llm=self.llm,
             verbose=True
         )
+
+    def setup_agents(self):
+        # Already initialized in __init__
+        pass
 
     async def update_agent_status(self, agent_name, status, task_desc=""):
         status_data = {
