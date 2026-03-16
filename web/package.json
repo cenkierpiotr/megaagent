@@ -16,6 +16,11 @@
     "next-auth": "latest",
     "otplib": "latest",
     "qrcode": "latest",
-    "socket.io-client": "latest"
+    "socket.io-client": "latest",
+    "redis": "latest",
+    "axios": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest"
   }
 }

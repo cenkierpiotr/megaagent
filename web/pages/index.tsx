@@ -11,7 +11,7 @@ export default function Dashboard() {
     fetch('/api/settings').then(res => res.json()).then(data => setHwMode(data.mode));
   }, []);
 
-  const saveSettings = async (mode) => {
+  const saveSettings = async (mode: string) => {
     setHwMode(mode);
     await fetch('/api/settings', {
       method: 'POST',
