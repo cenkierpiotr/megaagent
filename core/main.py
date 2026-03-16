@@ -71,10 +71,44 @@ class ClawCore:
             verbose=True
         )
 
+    async def process_task(self, task_data):
+        try:
+            task_dict = json.loads(task_data.decode('utf-8').replace("'", "\"")) # Basic fix for single quotes in stringified dict
+            prompt = task_dict.get("prompt")
+            source = task_dict.get("source")
+            chat_id = task_dict.get("chat_id")
+            
+            print(f"🚀 Processing task from {source}: {prompt}")
+            
+            # Simple CrewAI execution
+            crew_task = Task(description=prompt, agent=self.manager, expected_output="Actionable response or result.")
+            crew = Crew(agents=[self.manager, self.coder], tasks=[crew_task], process=Process.sequential)
+            result = crew.kickoff()
+            
+            # Publish result back to Redis for Gateway/Web to pick up
+            response = {
+                "source": source,
+                "chat_id": chat_id,
+                "result": str(result)
+            }
+            self.redis_client.publish("task_results", json.dumps(response))
+            
+        except Exception as e:
+            print(f"❌ Error processing task: {e}")
+
     def run(self):
         self.setup_agents()
-        print("Claw-Omni-OS Core is running...")
-        # Main loop or task listener would go here
+        print("Claw-Omni-OS Core is running and listening for tasks...")
+        
+        while True:
+            # Check P1 (Critical) then P2 (Interactive)
+            task = self.redis_client.brpop(["tasks:p1", "tasks:p2"], timeout=5)
+            if task:
+                queue, data = task
+                import asyncio
+                # For simplicity in this microservice, we process sequentially, 
+                # but could use asyncio.create_task for concurrent processing
+                asyncio.run(self.process_task(data))
 
 if __name__ == "__main__":
     core = ClawCore()

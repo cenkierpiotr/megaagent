@@ -36,11 +36,29 @@ class ClawBot:
         # This would be called by other internal services via Redis/Bridge
         pass
 
+    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if str(update.effective_chat.id) != str(self.admin_id) and self.admin_id:
+            return # Ignore non-admin messages
+
+        text = update.message.text
+        await update.message.reply_text("🤖 Working on it... I'll let you know when I have progress.")
+        
+        # Push to Redis P2 Queue (Standard Interactive Task)
+        task = {
+            "source": "telegram",
+            "chat_id": update.effective_chat.id,
+            "prompt": text,
+            "priority": "P2"
+        }
+        self.redis_client.lpush("tasks:p2", str(task))
+
     def run(self):
         application = ApplicationBuilder().token(self.token).build()
         
         application.add_handler(CommandHandler('start', self.start))
         application.add_handler(CommandHandler('status', self.status))
+        from telegram.ext import MessageHandler, filters
+        application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), self.handle_message))
         
         print("Telegram Bot is running...")
         application.run_polling()
