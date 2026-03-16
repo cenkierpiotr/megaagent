@@ -4,6 +4,21 @@ import Head from 'next/head';
 export default function Dashboard() {
   const [logs, setLogs] = useState([]);
   const [status, setStatus] = useState("Idle");
+  const [hwMode, setHwMode] = useState("auto");
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/settings').then(res => res.json()).then(data => setHwMode(data.mode));
+  }, []);
+
+  const saveSettings = async (mode) => {
+    setHwMode(mode);
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode })
+    });
+  };
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-8">
@@ -19,11 +34,50 @@ export default function Dashboard() {
           <span className={`px-3 py-1 rounded-full text-xs ${status === 'Active' ? 'bg-green-500' : 'bg-slate-600'}`}>
             {status}
           </span>
+          <button 
+            onClick={() => setIsSettingsOpen(true)}
+            className="p-2 hover:bg-slate-700 rounded-full transition"
+          >
+            ⚙️
+          </button>
           <button className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm font-medium transition">
             ABORT MISSION
           </button>
         </div>
       </header>
+
+      {isSettingsOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-2xl w-96">
+            <h2 className="text-2xl font-bold mb-6">System Settings</h2>
+            
+            <div className="mb-6">
+              <label className="block text-sm text-slate-400 mb-2">Hardware Mode</label>
+              <div className="flex bg-slate-900 p-1 rounded-lg">
+                {['auto', 'cpu', 'gpu'].map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => saveSettings(m)}
+                    className={`flex-1 py-1 rounded-md text-xs uppercase font-bold transition ${hwMode === m ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-[10px] text-slate-500 italic">
+                * GPU mode requires NVIDIA drivers and toolkit installed.
+              </p>
+            </div>
+
+            <button 
+              onClick={() => setIsSettingsOpen(false)}
+              className="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded-lg transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Terminal/Logs Section */}

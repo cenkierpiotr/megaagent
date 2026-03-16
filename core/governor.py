@@ -19,18 +19,25 @@ class HardenedGovernor:
 
     def get_llm_config(self, task_priority='P2'):
         """
-        Returns Ollama config based on GPU availability and task priority.
-        P1: Critical (Low latency)
-        P2: Interactive
-        P3: Batch (Slowest)
+        Returns Ollama config based on GPU availability, task priority, and UI override.
         """
+        override = self.r.get('hardware_mode_override')
+        if override:
+            override = override.decode('utf-8')
+            
+        use_gpu = self.gpu_detected
+        if override == 'cpu':
+            use_gpu = False
+        elif override == 'gpu':
+            use_gpu = True
+            
         config = {
             "model": os.getenv("LLM_MODEL", "llama3"),
-            "options": {"num_gpu": 1 if self.gpu_detected else 0}
+            "options": {"num_gpu": 1 if use_gpu else 0}
         }
         
         # Graceful Degradation: Switch to lighter model if on CPU
-        if not self.gpu_detected:
+        if not use_gpu:
             config["model"] = os.getenv("LLM_MODEL_LIGHT", "llama3:3b")
             
         return config
