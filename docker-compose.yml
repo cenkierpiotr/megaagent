@@ -31,16 +31,16 @@ services:
   multimodal:
     build: ./multimodal
     container_name: claw_multimodal
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-        limits:
-          cpus: '4.0'
-          memory: 8G
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    #     limits:
+    #       cpus: '4.0'
+    #       memory: 8G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 30s
