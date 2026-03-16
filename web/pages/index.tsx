@@ -5,24 +5,46 @@ export default function Dashboard() {
   const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
   const [inputText, setInputText] = useState("");
   const [status, setStatus] = useState("Idle");
-  const [ollamaStatus, setOllamaStatus] = useState("checking");
-  const [hwMode, setHwMode] = useState("auto");
-  const [selectedModel, setSelectedModel] = useState("llama3");
-  const [modelManager, setModelManager] = useState("llama3");
-  const [modelCoder, setModelCoder] = useState("codellama");
-  const [selectedCapability, setSelectedCapability] = useState("text");
-  const [models, setModels] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [agentStatus, setAgentStatus] = useState<any>({});
+  const [activeTab, setActiveTab] = useState("chat");
 
   useEffect(() => {
     refreshModels();
+    const statusInterval = setInterval(fetchAgentStatus, 3000);
     fetch('/api/settings').then(res => res.json()).then(data => {
       setHwMode(data.mode);
       if (data.model_manager) setModelManager(data.model_manager);
       if (data.model_coder) setModelCoder(data.model_coder);
     });
+    return () => clearInterval(statusInterval);
   }, []);
+
+  const fetchAgentStatus = async () => {
+    try {
+      const res = await fetch('/api/agents');
+      const data = await res.json();
+      setAgentStatus(data);
+    } catch (e) {}
+  };
+
+  const triggerAction = async (action: string, label: string) => {
+    setMessages(prev => [...prev, { role: 'user', content: `[System Command] ${label}` }]);
+    setIsLoading(true);
+    await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        direct_action: action,
+        prompt: label,
+        model_manager: modelManager,
+        model_coder: modelCoder
+      })
+    });
+    setTimeout(() => {
+       setIsLoading(false);
+       setMessages(prev => [...prev, { role: 'assistant', content: `🤖 Wywołano funkcję: **${label}**. Agent Menedżer analizuje system...` }]);
+    }, 1000);
+  };
 
   const refreshModels = async () => {
     setOllamaStatus("checking");
@@ -98,15 +120,28 @@ export default function Dashboard() {
           <span className="text-xl">+</span> New Conversation
         </button>
         
-        <nav className="flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
-          <div className="space-y-1">
-            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-2 mb-2">Workspace</p>
-            <div className="bg-white/5 p-3 rounded-xl border border-white/5 cursor-pointer hover:bg-white/10 transition">
-              <p className="text-sm font-medium">Multimodal Research</p>
-            </div>
-            <div className="p-3 rounded-xl cursor-not-allowed text-zinc-600">
-              <p className="text-sm font-medium">Automated Scraper (Coming soon)</p>
-            </div>
+        <nav className="flex-1 space-y-6 overflow-y-auto pr-2 custom-scrollbar">
+          <div className="space-y-3">
+            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-2">System Agents</p>
+            {['manager', 'coder', 'artist'].map(agent => (
+               <div key={agent} className="bg-white/5 p-4 rounded-2xl border border-white/5 flex items-center gap-3">
+                 <div className={`w-2.5 h-2.5 rounded-full ${agentStatus[agent]?.status === 'Idle' ? 'bg-zinc-700' : 'bg-blue-500 animate-pulse'}`}></div>
+                 <div className="flex-1">
+                   <p className="text-xs font-bold uppercase tracking-tight">{agent}</p>
+                   <p className="text-[10px] text-zinc-500 truncate">{agentStatus[agent]?.status || 'Idle'}</p>
+                 </div>
+               </div>
+            ))}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-2">Exposed Functions</p>
+            <button onClick={() => triggerAction('sys_check', 'System Diagnostic')} className="w-full flex items-center gap-3 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 p-3 rounded-xl transition text-xs font-bold border border-blue-500/20">
+              ⚡ Health Check
+            </button>
+            <button onClick={() => triggerAction('code_audit', 'Code Audit')} className="w-full flex items-center gap-3 bg-white/5 hover:bg-white/10 p-3 rounded-xl transition text-xs font-bold border border-white/5">
+              🔍 Audit Core
+            </button>
           </div>
         </nav>
 

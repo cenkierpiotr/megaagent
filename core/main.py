@@ -71,56 +71,78 @@ class ClawCore:
             verbose=True
         )
 
+    async def update_agent_status(self, agent_name, status, task_desc=""):
+        status_data = {
+            "status": status,
+            "task": task_desc,
+            "timestamp": asyncio.get_event_loop().time()
+        }
+        self.redis_client.set(f"agent_status:{agent_name.lower()}", json.dumps(status_data))
+
     async def process_task(self, task_data):
         try:
             task_dict = json.loads(task_data.decode('utf-8').replace("'", "\""))
             prompt = task_dict.get("prompt")
             source = task_dict.get("source")
             chat_id = task_dict.get("chat_id")
+            direct_action = task_dict.get("direct_action")
+            
             manager_model = task_dict.get("model_manager", task_dict.get("model", "llama3"))
             coder_model = task_dict.get("model_coder", manager_model)
             history = task_dict.get("history", [])
             capability = task_dict.get("capability", "text")
             
-            print(f"🚀 Processing {capability} task | Manager: {manager_model} | Coder: {coder_model}")
-            
-            # Dynamic Agent adjustments
-            # ... (previous logic for goal/backstory remained)
+            await self.update_agent_status("Manager", "Analyzing", prompt[:50])
 
-            # Update LLMs dynamically
-            manager_llm = Ollama(
-                model=manager_model,
-                base_url=os.getenv("OLLAMA_BASE_URL"),
-                num_gpu=self.governor.get_llm_config()["options"]["num_gpu"]
-            )
-            coder_llm = Ollama(
-                model=coder_model,
-                base_url=os.getenv("OLLAMA_BASE_URL"),
-                num_gpu=self.governor.get_llm_config()["options"]["num_gpu"]
-            )
-            
+            # Direct Action overrides
+            if direct_action == "sys_check":
+                prompt = "Perform a full system diagnostic: Redis connectivity, VRAM, and Docker health."
+                capability = "text"
+            elif direct_action == "code_audit":
+                prompt = "Analyze the project structure and suggest improvements for security and performance."
+                capability = "text"
+
+            # Dynamic Agent adjustments
+            if capability == "graphics":
+                self.manager.goal = "Create high-quality visual assets and graphics."
+                self.manager.backstory = "Expert digital artist and designer."
+            elif capability == "video":
+                self.manager.goal = "Generate and edit motion graphics or video content."
+                self.manager.backstory = "Professional video editor and motion designer."
+            elif capability == "audio":
+                self.manager.goal = "Synthesize audio, voiceovers, or musical elements."
+                self.manager.backstory = "Expert sound engineer and audio producer."
+            else:
+                self.manager.goal = "Orchestrate all system tasks and manage hardware resources."
+                self.manager.backstory = "Primary intelligence of Claw-Omni-OS."
+
+            # Update LLMs
+            manager_llm = Ollama(model=manager_model, base_url=os.getenv("OLLAMA_BASE_URL"))
+            coder_llm = Ollama(model=coder_model, base_url=os.getenv("OLLAMA_BASE_URL"))
             self.manager.llm = manager_llm
             self.coder.llm = coder_llm
 
-            # Format history for context
-            context_prompt = f"Selected Modal: {capability}\nHistory:\n" + "\n".join([f"{m['role']}: {m['content']}" for m in history[-5:]])
+            await self.update_agent_status("Manager", "Executing", prompt[:50])
+            await self.update_agent_status("Coder", "Waiting")
+
+            # Execution
+            context_prompt = f"Selected Modal: {capability}\nHistory:\n" + "\n".join([f"{m['role']}: {m['content']}" for m in history[-3:]])
             full_prompt = f"{context_prompt}\nUser: {prompt}"
             
-            # CrewAI execution
-            crew_task = Task(description=full_prompt, agent=self.manager, expected_output=f"Result for {capability} task.")
+            crew_task = Task(description=full_prompt, agent=self.manager, expected_output=f"Concise result for {capability} task.")
             crew = Crew(agents=[self.manager, self.coder], tasks=[crew_task], process=Process.sequential)
             result = crew.kickoff()
             
-            # Publish result back
-            response = {
-                "source": source,
-                "chat_id": chat_id,
-                "result": str(result)
-            }
+            await self.update_agent_status("Manager", "Idle")
+            await self.update_agent_status("Coder", "Idle")
+
+            # Publish result
+            response = {"source": source, "chat_id": chat_id, "result": str(result), "capability": capability}
             self.redis_client.publish("task_results", json.dumps(response))
             
         except Exception as e:
-            print(f"❌ Error processing task: {e}")
+            await self.update_agent_status("Manager", "Error", str(e))
+            print(f"❌ Error: {e}")
 
     def run(self):
         self.setup_agents()
