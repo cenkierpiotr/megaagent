@@ -29,8 +29,6 @@ services:
       - claw_network
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   # Next.js Dashboard
   web:
