@@ -1,0 +1,10 @@
+node_modules/
+.env
+logs/
+shared/*.db
+shared/__pycache__
+*.pyc
+__pycache__/
+dist/
+.next/
+
