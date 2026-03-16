@@ -27,6 +27,10 @@ services:
       - postgres
     networks:
       - claw_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # Next.js Dashboard
   web:
@@ -40,6 +44,8 @@ services:
       - REDIS_URL=redis://redis:6379/0
     networks:
       - claw_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # Telegram & Gateway
   gateway:
@@ -51,6 +57,8 @@ services:
       - TELEGRAM_ADMIN_CHAT_ID=${TELEGRAM_ADMIN_CHAT_ID}
     networks:
       - claw_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   multimodal:
     build: ./multimodal
@@ -74,6 +82,8 @@ services:
       - ./multimodal:/app
     networks:
       - claw_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # Infrastructure
   redis:
@@ -81,6 +91,8 @@ services:
     container_name: claw_redis
     networks:
       - claw_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   postgres:
     image: postgres:15-alpine
@@ -91,6 +103,8 @@ services:
       - POSTGRES_DB=clawdb
     networks:
       - claw_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 networks:
   claw_network:

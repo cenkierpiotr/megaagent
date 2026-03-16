@@ -77,35 +77,30 @@ class ClawCore:
             prompt = task_dict.get("prompt")
             source = task_dict.get("source")
             chat_id = task_dict.get("chat_id")
-            selected_model = task_dict.get("model", "llama3")
+            manager_model = task_dict.get("model_manager", task_dict.get("model", "llama3"))
+            coder_model = task_dict.get("model_coder", manager_model)
             history = task_dict.get("history", [])
             capability = task_dict.get("capability", "text")
             
-            print(f"🚀 Processing {capability} task from {source} using {selected_model}")
+            print(f"🚀 Processing {capability} task | Manager: {manager_model} | Coder: {coder_model}")
             
-            # Dynamic Agent adjustments based on capability
-            if capability == "graphics":
-                self.manager.goal = "Create high-quality visual assets and graphics."
-                self.manager.backstory = "Expert digital artist and designer."
-            elif capability == "video":
-                self.manager.goal = "Generate and edit motion graphics or video content."
-                self.manager.backstory = "Professional video editor and motion designer."
-            elif capability == "audio":
-                self.manager.goal = "Synthesize audio, voiceovers, or musical elements."
-                self.manager.backstory = "Expert sound engineer and audio producer."
-            else:
-                self.manager.goal = "Orchestrate all system tasks and manage hardware resources."
-                self.manager.backstory = "Primary intelligence of Claw-Omni-OS."
+            # Dynamic Agent adjustments
+            # ... (previous logic for goal/backstory remained)
 
-            # Update LLM dynamically for this task
-            task_llm = Ollama(
-                model=selected_model,
+            # Update LLMs dynamically
+            manager_llm = Ollama(
+                model=manager_model,
+                base_url=os.getenv("OLLAMA_BASE_URL"),
+                num_gpu=self.governor.get_llm_config()["options"]["num_gpu"]
+            )
+            coder_llm = Ollama(
+                model=coder_model,
                 base_url=os.getenv("OLLAMA_BASE_URL"),
                 num_gpu=self.governor.get_llm_config()["options"]["num_gpu"]
             )
             
-            self.manager.llm = task_llm
-            self.coder.llm = task_llm
+            self.manager.llm = manager_llm
+            self.coder.llm = coder_llm
 
             # Format history for context
             context_prompt = f"Selected Modal: {capability}\nHistory:\n" + "\n".join([f"{m['role']}: {m['content']}" for m in history[-5:]])

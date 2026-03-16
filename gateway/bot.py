@@ -1,6 +1,7 @@
 import os
 import logging
 import asyncio
+import json
 import redis
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler
@@ -52,6 +53,23 @@ class ClawBot:
         }
         self.redis_client.lpush("tasks:p2", str(task))
 
+    async def listen_for_results(self, application):
+        pubsub = self.redis_client.pubsub()
+        pubsub.subscribe("task_results")
+        print("Telegram result listener started...")
+        while True:
+            message = pubsub.get_message(ignore_subscribe_messages=True)
+            if message:
+                try:
+                    data = json.loads(message['data'])
+                    if data.get("source") == "telegram":
+                        chat_id = data.get("chat_id")
+                        result = data.get("result")
+                        await application.bot.send_message(chat_id=chat_id, text=f"✅ Result:\n\n{result}")
+                except Exception as e:
+                    print(f"Error sending telegram response: {e}")
+            await asyncio.sleep(1)
+
     def run(self):
         application = ApplicationBuilder().token(self.token).build()
         
@@ -61,6 +79,11 @@ class ClawBot:
         application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), self.handle_message))
         
         print("Telegram Bot is running...")
+        
+        # Start the result listener in the background
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.listen_for_results(application))
+        
         application.run_polling()
 
 if __name__ == "__main__":
