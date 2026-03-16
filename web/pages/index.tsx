@@ -5,6 +5,15 @@ export default function Dashboard() {
   const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
   const [inputText, setInputText] = useState("");
   const [status, setStatus] = useState("Idle");
+  const [ollamaStatus, setOllamaStatus] = useState("checking");
+  const [hwMode, setHwMode] = useState("auto");
+  const [selectedModel, setSelectedModel] = useState("llama3");
+  const [modelManager, setModelManager] = useState("llama3");
+  const [modelCoder, setModelCoder] = useState("codellama");
+  const [selectedCapability, setSelectedCapability] = useState("text");
+  const [models, setModels] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [agentStatus, setAgentStatus] = useState<any>({});
   const [activeTab, setActiveTab] = useState("chat");
 
