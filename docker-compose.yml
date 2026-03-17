@@ -51,6 +51,7 @@ services:
       - claw-net
     extra_hosts:
       - "host.docker.internal:host-gateway"
+      - "ollama-host:host-gateway"
 
   claw-web:
     build:
@@ -70,6 +71,7 @@ services:
       - claw-net
     extra_hosts:
       - "host.docker.internal:host-gateway"
+      - "ollama-host:host-gateway"
 
   claw-gateway:
     build:
