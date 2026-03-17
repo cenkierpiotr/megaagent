@@ -56,9 +56,10 @@ fi
 
 # 4. UFW check
 if command -v ufw &>/dev/null && sudo ufw status | grep -q "Status: active" 2>/dev/null; then
-    echo -e "\n🛡️  UFW Firewall detected! Opening port 14500 for Docker..."
-    sudo ufw allow in on docker0 to any port 14500 || true
-    echo -e "  ${GREEN}✓${NC} Firewall rule added for docker0 bridge."
+    echo -e "\n🛡️  UFW Firewall detected! Opening port 14500 for ALL Docker networks..."
+    # Allowing the entire standard Docker private range 172.16.0.0/12
+    sudo ufw allow from 172.16.0.0/12 to any port 14500 comment 'Megabot Ollama Access' || true
+    echo -e "  ${GREEN}✓${NC} Firewall rule added for 172.16.0.0/12 range."
 fi
 
 echo -e "\n${GREEN}✅ Fixes applied. Try the 'Auto-Detect' button again in the Dashboard!${NC}\n"

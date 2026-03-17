@@ -5,7 +5,15 @@ const COMMON_PORTS = [11434, 14500, 11435, 11436, 11437];
 
 export async function GET() {
   const results = [];
-  const hosts = ["host.docker.internal", "172.17.0.1"];
+  const hosts = [
+    "host.docker.internal", 
+    "172.17.0.1", 
+    "172.18.0.1", 
+    "172.19.0.1", 
+    "172.20.0.1",
+    "172.21.0.1",
+    "172.22.0.1"
+  ];
 
   // Scan ports in parallel with short timeout
   const scanPromises = hosts.flatMap(host => 
