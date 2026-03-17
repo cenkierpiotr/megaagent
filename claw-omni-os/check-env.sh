@@ -37,7 +37,16 @@ check_command() {
 # ── 1. Core Tools ─────────────────────────────────────────────
 echo -e "${BOLD}[1/3] Core Tools${NC}"
 check_command docker "Docker"
-check_command docker-compose "Docker Compose" 2>/dev/null || check_command "docker" "Docker Compose (plugin)"
+
+if command -v docker-compose &>/dev/null; then
+  echo -e "  ${GREEN}✓${NC} Docker Compose (standalone) found"
+elif docker compose version &>/dev/null; then
+  echo -e "  ${GREEN}✓${NC} Docker Compose (plugin) found"
+else
+  echo -e "  ${RED}✗${NC} Docker Compose not found — install it first!"
+  PASS=false
+fi
+
 check_command git "Git"
 echo ""
 
