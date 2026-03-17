@@ -16,12 +16,14 @@ echo -e "${CYAN}${BOLD}🌀 Ollama Autonomous Manager${NC}"
 
 # ── 1. Detection ──────────────────────────────────────────────
 find_ollama_url() {
-    # Check common ports/hosts
-    for host in "http://localhost:11434" "http://127.0.0.1:11434" "http://0.0.0.0:11434"; do
-        if curl -sf --max-time 1 "${host}/api/tags" > /dev/null 2>&1; then
-            echo "$host"
-            return 0
-        fi
+    # Check common ports/hosts (including user's 14500)
+    for port in "14500" "11434"; do
+        for host in "localhost" "127.0.0.1" "0.0.0.0"; do
+            if curl -sf --max-time 1 "http://${host}:${port}/api/tags" > /dev/null 2>&1; then
+                echo "http://localhost:${port}"
+                return 0
+            fi
+        done
     done
     
     # Try to find process and its dynamic port via lsof
@@ -95,6 +97,8 @@ ensure_ollama_running
 sync_models
 
 # Output for parent script consumption
-echo "OLLAMA_BASE_URL=$OLLAMA_BASE_URL" > .ollama_discovery
-echo -e "  ${GREEN}✅${NC} Configuration saved to ${BOLD}.ollama_discovery${NC}"
+# Convert localhost/127.0.0.1 to host.docker.internal for containers
+FINAL_URL=$(echo "$OLLAMA_BASE_URL" | sed 's/localhost/host.docker.internal/' | sed 's/127.0.0.1/host.docker.internal/')
+echo "OLLAMA_BASE_URL=$FINAL_URL" > .ollama_discovery
+echo -e "  ${GREEN}✅${NC} Configuration saved to ${BOLD}.ollama_discovery${NC} (URL: ${FINAL_URL})"
 echo ""
