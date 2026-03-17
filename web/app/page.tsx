@@ -53,6 +53,8 @@ export default function Dashboard() {
   const [mediaGallery, setMediaGallery] = useState<string[]>([]);
   const [agentStatus, setAgentStatus] = useState<Record<string, AgentStatus>>({});
   const [telemetry, setTelemetry] = useState<Telemetry>({ cpu: 0, ram: 0, vram: "N/A", temp: "N/A", gpu_util: 0 });
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState<{status: string, message: string} | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -249,6 +251,28 @@ export default function Dashboard() {
       alert(`Initiated pull for ${model}. It will appear in the list once finished.`);
     } catch (e) {
       alert("Failed to initiate pull");
+    }
+  };
+
+  const testConnection = async () => {
+    setIsTestingConnection(true);
+    setTestResult(null);
+    try {
+      const res = await fetch('/api/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: ollamaUrl })
+      });
+      const data = await res.json();
+      setTestResult({ status: data.status, message: data.message });
+      if (data.status === 'success' && data.models) {
+        setModels(data.models);
+        setOllamaStatus('connected');
+      }
+    } catch (e) {
+      setTestResult({ status: 'error', message: 'Network error occurred while testing.' });
+    } finally {
+      setIsTestingConnection(false);
     }
   };
 
@@ -544,12 +568,27 @@ export default function Dashboard() {
                   <div className="space-y-8">
                     <div>
                       <label className="block text-[10px] font-black text-zinc-600 uppercase mb-4 tracking-[0.2em]">Ollama Endlink</label>
-                      <input 
-                        type="text" 
-                        value={ollamaUrl} 
-                        onChange={(e) => setOllamaUrl(e.target.value)} 
-                        className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-[13px] focus:border-blue-500 outline-none font-mono text-blue-400 group-focus-within:shadow-[0_0_20px_rgba(59,130,246,0.2)] transition-all"
-                      />
+                      <div className="flex gap-3">
+                        <input 
+                          type="text" 
+                          value={ollamaUrl} 
+                          onChange={(e) => {setOllamaUrl(e.target.value); setTestResult(null);}} 
+                          className="flex-1 bg-black/40 border border-white/5 rounded-2xl p-4 text-[13px] focus:border-blue-500 outline-none font-mono text-blue-400 transition-all"
+                          placeholder="http://host.docker.internal:11434"
+                        />
+                        <button 
+                          onClick={testConnection}
+                          disabled={isTestingConnection}
+                          className={`px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${isTestingConnection ? 'bg-zinc-800 text-zinc-500' : 'bg-white/5 hover:bg-white/10 border border-white/10'}`}
+                        >
+                          {isTestingConnection ? 'Testing...' : 'Test'}
+                        </button>
+                      </div>
+                      {testResult && (
+                        <div className={`mt-3 px-4 py-2 rounded-xl border text-[10px] font-bold ${testResult.status === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
+                          {testResult.message}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-[10px] font-black text-zinc-600 uppercase mb-4 tracking-[0.2em]">Compute Preference</label>
@@ -581,28 +620,36 @@ export default function Dashboard() {
                                 <span>{cfg.label}</span>
                                 <span className="text-blue-500/60 lowercase italic">best: {cfg.rec}</span>
                             </label>
-                            <div className="flex gap-2">
-                                <select 
-                                    value={cfg.val} 
-                                    onChange={(e) => cfg.set(e.target.value)} 
-                                    className="flex-1 bg-black/40 border border-white/5 rounded-2xl p-4 text-xs font-bold focus:border-blue-500 outline-none appearance-none"
-                                >
-                                    {models.length > 0 ? models.map(m => (
-                                        <option key={m} value={m} className="bg-[#0e0e10]">
-                                            {m} {m === cfg.rec ? '⭐' : ''}
-                                        </option>
-                                    )) : <option>{cfg.val} (offline)</option>}
-                                </select>
-                                {!models.includes(cfg.rec) && (
-                                    <button 
-                                        onClick={() => pullModel(cfg.rec)}
-                                        className="px-3 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-xl text-blue-400"
-                                        title={`Download recommended model: ${cfg.rec}`}
+                             <div className="flex flex-col gap-2">
+                                <div className="flex gap-2">
+                                    <select 
+                                        value={cfg.val} 
+                                        onChange={(e) => cfg.set(e.target.value)} 
+                                        className={`flex-1 bg-black/40 border border-white/5 rounded-2xl p-4 text-xs font-bold focus:border-blue-500 outline-none appearance-none ${!models.includes(cfg.val) ? 'text-rose-400 border-rose-500/30' : 'text-emerald-400 border-emerald-500/30'}`}
                                     >
-                                        <span className="material-symbols-outlined text-sm">cloud_download</span>
-                                    </button>
-                                )}
-                            </div>
+                                        {models.length > 0 ? models.map(m => (
+                                            <option key={m} value={m} className="bg-[#0e0e10]">
+                                                {m} {m === cfg.rec ? '⭐' : ''}
+                                            </option>
+                                        )) : <option>{cfg.val} (offline)</option>}
+                                    </select>
+                                    {!models.includes(cfg.rec) && (
+                                        <button 
+                                            onClick={() => pullModel(cfg.rec)}
+                                            className="px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
+                                            title={`Download recommended model: ${cfg.rec}`}
+                                        >
+                                          <span className="material-symbols-outlined text-sm">cloud_download</span>
+                                          <span className="text-[9px] font-black uppercase">Get {cfg.rec}</span>
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex justify-between px-2">
+                                   <span className={`text-[8px] font-black uppercase tracking-widest ${models.includes(cfg.val) ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                      {models.includes(cfg.val) ? '✓ Currently Ready' : '✗ Model Not Found Locally'}
+                                   </span>
+                                </div>
+                             </div>
                         </div>
                     ))}
                   </div>

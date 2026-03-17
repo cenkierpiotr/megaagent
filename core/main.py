@@ -76,12 +76,16 @@ class ClawCore:
             print(f"🔴 DB Logging Failed: {e}")
 
     def get_llm(self, model_name):
+        # Refresh URL from Redis if override exists
+        override_url = self.r.get('ollama_base_url_override')
+        base_url = override_url if override_url else self.ollama_base_url
+
         config = self.governor.get_llm_config()
         # Use governor suggested model if default requested, otherwise respect override
         final_model = config['model'] if model_name in ['llama3', 'llama3:3b', 'codellama'] else model_name
         return Ollama(
             model=final_model, 
-            base_url=self.ollama_base_url,
+            base_url=base_url,
             options=config.get('options', {})
         )
 
@@ -216,7 +220,7 @@ async def health_check():
     results = {}
     
     # 1. Check Dynamic Setting from Redis dashboard
-    dynamic_url = core.r.get("setting:ollama_url")
+    dynamic_url = core.r.get("ollama_base_url_override")
     test_urls = []
     if dynamic_url:
         test_urls.append(dynamic_url.strip())
