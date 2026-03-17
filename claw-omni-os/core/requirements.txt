@@ -1,7 +1,9 @@
 crewai
 langchain-community
 redis
-pydantic
-python-dotenv
-bullmq
 requests
+psutil
+pynvml
+fastapi
+uvicorn
+python-multipart

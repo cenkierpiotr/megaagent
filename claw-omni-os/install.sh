@@ -1,36 +1,46 @@
 #!/bin/bash
 
-echo "🚀 Starting Claw-Omni-OS Installation Wizard..."
+echo "🚀 Starting Claw-Omni-OS Installation Wizard"
+echo "------------------------------------------"
 
-# Check dependencies
-if command -v docker >/dev/null 2>&1; then
-    echo "✅ Docker found."
-else
-    echo "❌ Docker is not installed. Install it with: sudo apt update && sudo apt install docker.io"
+# 1. Check for Docker
+if ! command -v docker &> /dev/null; then
+    echo "❌ Docker is not installed. Please install Docker first."
     exit 1
 fi
 
-if docker compose version >/dev/null 2>&1; then
-    DOCKER_COMPOSE="docker compose"
-    echo "✅ Docker Compose (plugin) found."
-elif command -v docker-compose >/dev/null 2>&1; then
-    DOCKER_COMPOSE="docker-compose"
-    echo "✅ docker-compose (v1) found."
+# 2. Check for NVIDIA Drivers (Optional)
+if command -v nvidia-smi &> /dev/null; then
+    echo "✅ NVIDIA GPU Detected. Enabling Hardware Acceleration."
+    HAS_GPU=true
 else
-    echo "❌ Docker Compose is required. Install it with: sudo apt install docker-compose-v2"
-    exit 1
+    echo "🟡 No NVIDIA GPU detected. Falling back to CPU mode."
+    HAS_GPU=false
 fi
 
-# Initialize .env
+# 3. Setup .env
 if [ ! -f .env ]; then
-    echo "📄 Creating .env file from .env.example..."
-    cp .env.example .env
-    echo "⚠️  Please edit .env with your specific API keys and tokens."
+    echo "📝 Creating .env file..."
+    read -p "Enter Telegram Bot Token (optional): " TG_TOKEN
+    read -p "Enter Serper.dev API Key (optional): " SERPER_KEY
+    
+    cat <<EOF > .env
+TELEGRAM_BOT_TOKEN=$TG_TOKEN
+SERPER_API_KEY=$SERPER_KEY
+OLLAMA_BASE_URL=http://host.docker.internal:11434
+REDIS_URL=redis://claw-redis:6379/0
+EOF
 fi
 
-# Create necessary directories
-mkdir -p core web gateway shared multimodal logs
+# 4. Pull/Build Containers
+echo "Building system containers..."
+docker compose build
 
-echo "✅ Directories initialized."
-echo "🐳 To build and start: $DOCKER_COMPOSE up --build -d"
-echo "🛠️  Remember to install NVIDIA Container Toolkit for GPU support."
+# 5. Starting Services
+echo "Finalizing deployment..."
+docker compose up -d
+
+echo "------------------------------------------"
+echo "✅ Claw-Omni-OS is now LIVE!"
+echo "Dashboard: http://localhost:3000"
+echo "Core Engine: Running (Privileged)"

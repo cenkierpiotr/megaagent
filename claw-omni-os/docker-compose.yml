@@ -1,109 +1,70 @@
 services:
-  # Main orchestrator using CrewAI
-  core:
-    build: ./core
-    container_name: claw_core
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 4G
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    volumes:
-      - ./core:/app
-      - ./shared:/shared
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-      - POSTGRES_URL=postgresql://user:pass@postgres:5432/clawdb
-      - LLM_MODEL=llama3
-      - LLM_MODEL_LIGHT=llama3:3b
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
-    depends_on:
-      - redis
-      - postgres
-    networks:
-      - claw_network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-  # Next.js Dashboard
-  web:
-    build: ./web
-    container_name: claw_web
-    ports:
-      - "3000:3000"
-    environment:
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - REDIS_URL=redis://redis:6379/0
-    networks:
-      - claw_network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-  # Telegram & Gateway
-  gateway:
-    build: ./gateway
-    container_name: claw_gateway
-    environment:
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - REDIS_URL=redis://redis:6379/0
-      - TELEGRAM_ADMIN_CHAT_ID=${TELEGRAM_ADMIN_CHAT_ID}
-    networks:
-      - claw_network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-  multimodal:
-    build: ./multimodal
-    container_name: claw_multimodal
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
-    #     limits:
-    #       cpus: '4.0'
-    #       memory: 8G
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    volumes:
-      - ./multimodal:/app
-    networks:
-      - claw_network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-  # Infrastructure
-  redis:
-    image: redis:7-alpine
-    container_name: claw_redis
-    networks:
-      - claw_network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-  postgres:
+  claw-postgres:
     image: postgres:15-alpine
     container_name: claw_postgres
+    restart: always
     environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=pass
-      - POSTGRES_DB=clawdb
+      POSTGRES_USER: claw
+      POSTGRES_PASSWORD: claw_password
+      POSTGRES_DB: claw_db
+    volumes:
+      - ./shared/postgres_data:/var/lib/postgresql/data
     networks:
-      - claw_network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - claw-net
+
+  claw-redis:
+    image: redis:7-alpine
+    container_name: claw_redis
+    restart: always
+    networks:
+      - claw-net
+
+  claw-core:
+    build:
+      context: ./core
+    container_name: claw_core
+    depends_on:
+      - claw-redis
+    environment:
+      - REDIS_URL=redis://claw-redis:6379/0
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    volumes:
+      - ./core:/app
+      - ./shared:/app/shared
+    # Hardware access for telemetry (privileged for psutil/pynvml)
+    privileged: true
+    pid: "host"
+    networks:
+      - claw-net
+
+  claw-web:
+    build:
+      context: ./web
+    container_name: claw_web
+    restart: always
+    depends_on:
+      - claw-core
+      - claw-redis
+    environment:
+      - REDIS_URL=redis://claw-redis:6379/0
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    ports:
+      - "3000:3000"
+    networks:
+      - claw-net
+
+  claw-gateway:
+    build:
+      context: ./gateway
+    container_name: claw_gateway
+    depends_on:
+      - claw-redis
+    environment:
+      - REDIS_URL=redis://claw-redis:6379/0
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    networks:
+      - claw-net
 
 networks:
-  claw_network:
+  claw-net:
     driver: bridge
