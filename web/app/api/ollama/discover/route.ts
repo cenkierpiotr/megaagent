@@ -20,7 +20,7 @@ export async function GET() {
       // Port not answering or not Ollama
     }
     return null;
-  });
+  }));
 
   const found = (await Promise.all(scanPromises)).filter(r => r !== null);
 
