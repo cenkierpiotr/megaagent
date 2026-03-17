@@ -3,11 +3,13 @@ import redis
 import json
 import asyncio
 import requests
+import psycopg2
 from datetime import datetime
 from fastapi import FastAPI, BackgroundTasks
 from crewai import Agent, Task, Crew, Process
 from langchain_community.llms import Ollama
 from telemetry import TelemetryCollector
+from governor import HardenedGovernor
 
 app = FastAPI()
 
@@ -15,13 +17,73 @@ class ClawCore:
     def __init__(self):
         self.redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
         self.r = redis.Redis.from_url(self.redis_url, decode_responses=True)
-        self.telemetry = TelemetryCollector(self.r)
+        self.governor = HardenedGovernor(self.redis_url)
+        self.telemetry = TelemetryCollector(self.r, self.governor)
         
         # Base LLM config
         self.ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
         
+        # Postgres Config
+        self.db_url = os.getenv("POSTGRES_URL")
+        self.init_db()
+
+    def init_db(self):
+        """Initialize Postgres table if not exists."""
+        if not self.db_url:
+            return
+        try:
+            conn = psycopg2.connect(self.db_url)
+            cur = conn.cursor()
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS agent_logs (
+                    id SERIAL PRIMARY KEY,
+                    source TEXT,
+                    chat_id TEXT,
+                    capability TEXT,
+                    prompt TEXT,
+                    result TEXT,
+                    status TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print(f"🔴 DB Init Failed: {e}")
+
+    def log_to_db(self, task_data, result, status="completed"):
+        if not self.db_url:
+            return
+        try:
+            conn = psycopg2.connect(self.db_url)
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO agent_logs (source, chat_id, capability, prompt, result, status)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (
+                task_data.get('source', 'unknown'),
+                str(task_data.get('chat_id')),
+                task_data.get('capability'),
+                task_data.get('prompt'),
+                str(result),
+                status
+            ))
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print(f"🔴 DB Logging Failed: {e}")
+
     def get_llm(self, model_name):
-        return Ollama(model=model_name, base_url=self.ollama_base_url)
+        config = self.governor.get_llm_config()
+        # Use governor suggested model if default requested, otherwise respect override
+        final_model = config['model'] if model_name in ['llama3', 'llama3:3b', 'codellama'] else model_name
+        return Ollama(
+            model=final_model, 
+            base_url=self.ollama_base_url,
+            options=config.get('options', {})
+        )
 
     async def update_agent_status(self, agent_name, status, task_desc=""):
         status_data = {
@@ -35,9 +97,10 @@ class ClawCore:
         """Resource Governor: Unload Ollama models for heavy tasks."""
         print(f"🟡 Resource Governor: Purging VRAM for model {model_name}...")
         try:
-            # literal matching user request: POST /api/generate { "model": "...", "keep_alive": 0 }
+            # The governor handles the state, we just trigger the unload
             res = requests.post(f"{self.ollama_base_url}/api/generate", 
                          json={"model": model_name, "keep_alive": 0}, timeout=5)
+            # Notify governor if needed or just let it detect next cycle
             return res.status_code == 200
         except Exception as e:
             print(f"🔴 VRAM Purge Failed: {e}")
@@ -107,6 +170,7 @@ class ClawCore:
                 _, data = task_raw
                 try:
                     task_data = json.loads(data)
+                    source = task_data.get('source', 'web') # Default to web
                     capability = task_data.get('capability', 'text')
                     prompt = task_data.get('prompt', '')
                     models = {
@@ -125,13 +189,21 @@ class ClawCore:
                     crew = self.create_crew(prompt, capability, models)
                     result = crew.kickoff()
                     
+                    # Log to DB
+                    self.log_to_db(task_data, result)
+
                     # Publish result
                     res_payload = {
+                        "source": source,
                         "chat_id": task_data.get("chat_id"),
                         "result": str(result),
                         "capability": capability
                     }
                     self.r.publish('task_results', json.dumps(res_payload))
+                    
+                    if source == "web":
+                        self.r.lpush("web_results:web_user", json.dumps(res_payload))
+                        self.r.ltrim("web_results:web_user", 0, 49) # Keep last 50
                 except Exception as e:
                     print(f"Task error: {e}")
             await asyncio.sleep(0.5)

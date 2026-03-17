@@ -39,6 +39,13 @@ export default function Dashboard() {
   const [modelArtist, setModelArtist] = useState("llava");
   const [ollamaUrl, setOllamaUrl] = useState("http://host.docker.internal:11434");
   
+  const recommendations: Record<string, string> = {
+    manager: "llama3",
+    coder: "codellama",
+    researcher: "mistral",
+    artist: "llava"
+  };
+  
   const [selectedCapability, setSelectedCapability] = useState("text");
   const [isLoading, setIsLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -53,9 +60,13 @@ export default function Dashboard() {
     refreshModels();
     loadSettings();
     
-    // Telemetry polling (to be replaced by WebSocket in full backend integration)
+    // Telemetry polling
     const statusInterval = setInterval(fetchTelemetryAndStatus, 3000);
-    return () => clearInterval(statusInterval);
+    const resultsInterval = setInterval(pollResults, 5000);
+    return () => {
+      clearInterval(statusInterval);
+      clearInterval(resultsInterval);
+    };
   }, []);
 
   useEffect(() => {
@@ -97,6 +108,36 @@ export default function Dashboard() {
         ram: Math.floor(Math.random() * 20 + 40),
         gpu_util: Math.floor(Math.random() * 15)
       }));
+    }
+  };
+  
+  const processedResults = useRef(new Set());
+
+  const pollResults = async () => {
+    try {
+      const res = await fetch('/api/results');
+      const data = await res.json();
+      if (data.results && data.results.length > 0) {
+        const newMessages: Message[] = [];
+        data.results.forEach((res: any) => {
+          const resId = `${res.chat_id}-${res.result.substring(0, 20)}`;
+          if (!processedResults.current.has(resId)) {
+            newMessages.push({
+              role: 'assistant',
+              content: res.result,
+              agent: res.capability === 'text' ? 'Manager' : (res.capability === 'graphics' ? 'Artist' : 'Researcher'),
+              timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+            });
+            processedResults.current.add(resId);
+          }
+        });
+        
+        if (newMessages.length > 0) {
+          setMessages(prev => [...prev, ...newMessages]);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to poll results");
     }
   };
 
@@ -196,6 +237,19 @@ export default function Dashboard() {
     });
     setIsSettingsOpen(false);
     refreshModels();
+  };
+
+  const pullModel = async (model: string) => {
+    try {
+      await fetch('/api/pull', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model })
+      });
+      alert(`Initiated pull for ${model}. It will appear in the list once finished.`);
+    } catch (e) {
+      alert("Failed to initiate pull");
+    }
   };
 
   const capabilities = [
@@ -516,18 +570,41 @@ export default function Dashboard() {
                 <div className="space-y-8 pt-10 border-t border-white/5">
                   <p className="text-[11px] font-black text-white uppercase tracking-[0.3em]">Agent Neural Mapping</p>
                   <div className="grid grid-cols-2 gap-8">
-                    <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-zinc-600 uppercase px-2">Manager Core</label>
-                      <select value={modelManager} onChange={(e) => setModelManager(e.target.value)} className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-xs font-bold focus:border-blue-500 outline-none appearance-none">
-                        {models.length > 0 ? models.map(m => <option key={m} value={m} className="bg-[#0e0e10]">{m}</option>) : <option>llama3 (default)</option>}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                       <label className="block text-[10px] font-black text-zinc-600 uppercase px-2">Coder Engine</label>
-                       <select value={modelCoder} onChange={(e) => setModelCoder(e.target.value)} className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-xs font-bold focus:border-blue-500 outline-none appearance-none">
-                        {models.length > 0 ? models.map(m => <option key={m} value={m} className="bg-[#0e0e10]">{m}</option>) : <option>codellama (default)</option>}
-                      </select>
-                    </div>
+                    {[
+                        { id: 'manager', label: 'Manager Core', val: modelManager, set: setModelManager, rec: recommendations.manager },
+                        { id: 'coder', label: 'Coder Engine', val: modelCoder, set: setModelCoder, rec: recommendations.coder },
+                        { id: 'researcher', label: 'Researcher Brain', val: modelResearcher, set: setModelResearcher, rec: recommendations.researcher },
+                        { id: 'artist', label: 'Artist Vision', val: modelArtist, set: setModelArtist, rec: recommendations.artist }
+                    ].map(cfg => (
+                        <div key={cfg.id} className="space-y-3">
+                            <label className="block text-[10px] font-black text-zinc-600 uppercase px-2 flex justify-between">
+                                <span>{cfg.label}</span>
+                                <span className="text-blue-500/60 lowercase italic">best: {cfg.rec}</span>
+                            </label>
+                            <div className="flex gap-2">
+                                <select 
+                                    value={cfg.val} 
+                                    onChange={(e) => cfg.set(e.target.value)} 
+                                    className="flex-1 bg-black/40 border border-white/5 rounded-2xl p-4 text-xs font-bold focus:border-blue-500 outline-none appearance-none"
+                                >
+                                    {models.length > 0 ? models.map(m => (
+                                        <option key={m} value={m} className="bg-[#0e0e10]">
+                                            {m} {m === cfg.rec ? '⭐' : ''}
+                                        </option>
+                                    )) : <option>{cfg.val} (offline)</option>}
+                                </select>
+                                {!models.includes(cfg.rec) && (
+                                    <button 
+                                        onClick={() => pullModel(cfg.rec)}
+                                        className="px-3 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-xl text-blue-400"
+                                        title={`Download recommended model: ${cfg.rec}`}
+                                    >
+                                        <span className="material-symbols-outlined text-sm">cloud_download</span>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ))}
                   </div>
                 </div>
 

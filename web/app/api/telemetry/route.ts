@@ -17,11 +17,12 @@ export async function GET() {
 
     // Default/Fallback telemetry logic
     return NextResponse.json({
-      cpu: 15,
-      ram: 42,
-      vram: "4.1 GiB / 12 GiB",
-      temp: "48°C",
-      gpu_util: 5
+      cpu: 0,
+      ram: 0,
+      vram: "N/A",
+      temp: "N/A",
+      gpu_util: 0,
+      status: "waiting"
     });
   } catch (error) {
     return NextResponse.json({ error: 'Telemetry unavailable' }, { status: 500 });

@@ -51,14 +51,25 @@ fi
 rm gpu_output.txt
 echo ""
 
-# ── Step 3: .env Setup ─────────────────────────────────────────
-echo -e "${BOLD}[3/5] Environment Configuration${NC}"
+# ── Step 3: Ollama & .env Setup ────────────────────────────────
+echo -e "${BOLD}[3/5] Ollama & Environment Setup${NC}"
+# Run autonomous manager for discovery and model sync
+./scripts/ollama-manager.sh
+
+# Load discovered URL
+if [ -f .ollama_discovery ]; then
+  # Use grep/awk to avoid 'source' issues in some shells if needed, 
+  # but here we use simple assignment extraction
+  OLL_URL=$(grep OLLAMA_BASE_URL .ollama_discovery | cut -d'=' -f2)
+  rm .ollama_discovery
+else
+  OLL_URL="http://host.docker.internal:11434"
+fi
+
 if [ ! -f .env ]; then
   echo -e "  ${YELLOW}→${NC}  Creating .env (press Enter to skip optional fields)"
   read -p "  Telegram Bot Token (optional): " TG_TOKEN
   read -p "  Serper.dev API Key (optional): " SERPER_KEY
-  read -p "  Ollama URL [http://host.docker.internal:11434]: " OLL_URL
-  OLL_URL="${OLL_URL:-http://host.docker.internal:11434}"
   
   cat <<EOF > .env
 PROJECT_NAME=Megabot-Consolidated
@@ -74,9 +85,9 @@ HAS_GPU=${HAS_GPU}
 GPU_COUNT=${GPU_COUNT}
 PORT=3000
 EOF
-  echo -e "  ${GREEN}✓${NC} .env created"
+  echo -e "  ${GREEN}✓${NC} .env created with Ollama at ${OLL_URL}"
 else
-  echo -e "  ${GREEN}✓${NC} .env already exists — skipping"
+  echo -e "  ${GREEN}✓${NC} .env already exists — skipping creation"
 fi
 echo ""
 

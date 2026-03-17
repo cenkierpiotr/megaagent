@@ -1,5 +1,6 @@
 crewai
 langchain-community
+psycopg2-binary
 redis
 requests
 psutil

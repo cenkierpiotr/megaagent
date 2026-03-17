@@ -13,10 +13,12 @@ except ImportError:
     HAS_NVML = False
 
 class TelemetryCollector:
-    def __init__(self, redis_client):
+    def __init__(self, redis_client, governor=None):
         self.r = redis_client
+        self.governor = governor
 
     def get_stats(self):
+        # Base CPU/RAM stats
         stats = {
             "cpu": psutil.cpu_percent(interval=None),
             "ram": psutil.virtual_memory().percent,
@@ -26,26 +28,38 @@ class TelemetryCollector:
             "timestamp": datetime.now().isoformat()
         }
 
+        # Merge with Governor data if available (NVIDIA-SMI based)
+        if self.governor:
+            gov_stats = self.governor.get_telemetry()
+            # gov_stats = {"cpu": "load", "vram": "used", "temp": "temp"}
+            stats["vram"] = gov_stats.get("vram", "N/A")
+            stats["temp"] = gov_stats.get("temp", "N/A")
+            
+            # Extract gpu_util if possible or use zero
+            # governor logic uses nvidia-smi but doesn't explicitly return 'util' in stats dict yet
+            # but we can fallback to NVML for precise util if governor doesn't provide it
+        
         if HAS_NVML:
             try:
                 handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-                mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
                 util = pynvml.nvmlDeviceGetUtilizationRates(handle)
-                temp = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
-                
-                stats["vram"] = f"{round(mem.used / (1024**3), 1)} GiB / {round(mem.total / (1024**3), 1)} GiB"
                 stats["gpu_util"] = util.gpu
-                stats["temp"] = f"{temp}°C"
+                # If governor didn't get vram/temp, NVML can supplement
+                if stats["vram"] == "N/A":
+                    mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                    stats["vram"] = f"{round(mem.used / (1024**3), 1)} GiB / {round(mem.total / (1024**3), 1)} GiB"
+                if stats["temp"] == "N/A":
+                    temp = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
+                    stats["temp"] = f"{temp}°C"
             except Exception as e:
-                print(f"GPU Telemetry error: {e}")
+                print(f"GPU Telemetry fallback error: {e}")
 
         return stats
 
     async def run_loop(self):
-        print("📊 Telemetry Collector Started")
+        print("📊 Telemetry Collector Started (Governor Integrated)")
         while True:
             stats = self.get_stats()
             self.r.set('system_telemetry', json.dumps(stats))
-            # Also publish for real-time subscribers if needed
             self.r.publish('telemetry_stream', json.dumps(stats))
             await asyncio.sleep(2)
