@@ -5,10 +5,11 @@ const COMMON_PORTS = [11434, 14500, 11435, 11436, 11437];
 
 export async function GET() {
   const results = [];
-  const host = "host.docker.internal";
+  const hosts = ["host.docker.internal", "172.17.0.1"];
 
   // Scan ports in parallel with short timeout
-  const scanPromises = COMMON_PORTS.map(async (port) => {
+  const scanPromises = hosts.flatMap(host => 
+    COMMON_PORTS.map(async (port) => {
     const url = `http://${host}:${port}`;
     try {
       const response = await axios.get(`${url}/api/tags`, { timeout: 1500 });
