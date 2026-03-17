@@ -92,16 +92,8 @@ services:
     # but we can use profile or just keep it as is if the user has nvidia-container-runtime configured.
     # We will use reservation which fails gracefully if driver is missing in some setups, 
     # but to be safe we would ideally use a profile.
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: ${GPU_COUNT:-0}
-              capabilities: [gpu]
-        limits:
-          cpus: '4.0'
-          memory: 8G
+    # GPU reservations moved to docker-compose.override.yml (managed by install.sh)
+    # This prevents failures on machines with missing/broken NVIDIA drivers.
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 30s

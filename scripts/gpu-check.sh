@@ -21,7 +21,7 @@ if command -v nvidia-smi &>/dev/null; then
     else
         echo -e "${YELLOW}⚠️  nvidia-smi exists but no GPU found or driver issue.${NC}"
         echo "HAS_GPU=false"
-        exit 1
+        exit 0
     fi
 else
     echo -e "${YELLOW}ℹ️  No NVIDIA GPU detected (nvidia-smi not found). Running in CPU mode.${NC}"

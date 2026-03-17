@@ -85,6 +85,25 @@ HAS_GPU=${HAS_GPU}
 GPU_COUNT=${GPU_COUNT}
 PORT=3000
 EOF
+
+  # ── Step 3.5: Dynamic GPU Override ──────────────────────────
+  if [ "$HAS_GPU" = "true" ]; then
+    echo -e "  ${YELLOW}→${NC}  Generating docker-compose.override.yml for GPU support"
+    cat <<EOF > docker-compose.override.yml
+services:
+  claw-multimodal:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: ${GPU_COUNT}
+              capabilities: [gpu]
+EOF
+  else
+    echo -e "  ${YELLOW}→${NC}  CPU Mode detected — ensuring no GPU reservations"
+    rm -f docker-compose.override.yml
+  fi
   echo -e "  ${GREEN}✓${NC} .env created with Ollama at ${OLL_URL}"
 else
   echo -e "  ${GREEN}✓${NC} .env already exists — skipping creation"
