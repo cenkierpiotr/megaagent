@@ -108,6 +108,18 @@ services:
     networks:
       - claw-net
 
+  # NUCLEAR OPTION: Internal Ollama Fallback
+  # Set INTERNAL_OLLAMA_ENABLED=true in .env to use this if host connection fails
+  ollama-internal:
+    image: ollama/ollama:latest
+    container_name: claw_ollama_internal
+    profiles: ["internal-ollama"]
+    restart: always
+    volumes:
+      - ./ollama_data:/root/.ollama
+    networks:
+      - claw-net
+
 networks:
   claw-net:
     driver: bridge
