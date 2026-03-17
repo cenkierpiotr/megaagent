@@ -40,14 +40,15 @@ echo ""
 
 # ── Step 2: GPU Detection ──────────────────────────────────────
 echo -e "${BOLD}[2/5] GPU Detection${NC}"
-if command -v nvidia-smi &>/dev/null; then
-  GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -n1)
-  echo -e "  ${GREEN}✓${NC} Detected: ${GPU_NAME} — Hardware Acceleration ENABLED"
+./scripts/gpu-check.sh > gpu_output.txt
+if grep -q "HAS_GPU=true" gpu_output.txt; then
   HAS_GPU=true
+  GPU_COUNT=1
 else
-  echo -e "  ${YELLOW}⚠${NC}  No NVIDIA GPU detected — CPU fallback mode"
   HAS_GPU=false
+  GPU_COUNT=0
 fi
+rm gpu_output.txt
 echo ""
 
 # ── Step 3: .env Setup ─────────────────────────────────────────
@@ -60,10 +61,18 @@ if [ ! -f .env ]; then
   OLL_URL="${OLL_URL:-http://host.docker.internal:11434}"
   
   cat <<EOF > .env
+PROJECT_NAME=Megabot-Consolidated
+DOMAIN=localhost
 TELEGRAM_BOT_TOKEN=${TG_TOKEN}
 SERPER_API_KEY=${SERPER_KEY}
 OLLAMA_BASE_URL=${OLL_URL}
 REDIS_URL=redis://claw-redis:6379/0
+POSTGRES_USER=claw
+POSTGRES_PASSWORD=claw_password
+POSTGRES_DB=claw_db
+HAS_GPU=${HAS_GPU}
+GPU_COUNT=${GPU_COUNT}
+PORT=3000
 EOF
   echo -e "  ${GREEN}✓${NC} .env created"
 else

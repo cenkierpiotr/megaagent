@@ -10,11 +10,20 @@ class HardenedGovernor:
         self.gpu_detected = self._check_gpu()
         
     def _check_gpu(self):
-        """Check if NVIDIA GPU is available."""
-        try:
-            subprocess.check_output(['nvidia-smi'], stderr=subprocess.STDOUT)
+        """Check if NVIDIA GPU is available and working."""
+        # Check environment variable first (set by install.sh)
+        has_gpu_env = os.getenv("HAS_GPU", "").lower()
+        if has_gpu_env == "true":
             return True
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        elif has_gpu_env == "false":
+            return False
+
+        # Fallback to manual check
+        try:
+            # check_output with short timeout
+            subprocess.check_output(['nvidia-smi', '-L'], stderr=subprocess.STDOUT, timeout=5)
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
             return False
 
     def get_llm_config(self, task_priority='P2'):
@@ -53,7 +62,7 @@ class HardenedGovernor:
         stats = {"cpu": 0, "vram": "N/A", "temp": "N/A"}
         try:
             # CPU Load
-            stats["cpu"] = os.getloadavg()[0] * 10 
+            stats["cpu"] = f"{os.getloadavg()[0] * 10:.1f}"
             # GPU Stats
             if self.gpu_detected:
                 output = subprocess.check_output(

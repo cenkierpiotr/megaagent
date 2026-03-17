@@ -1,7 +1,0 @@
-crewai
-langchain-community
-redis
-pydantic
-python-dotenv
-bullmq
-requests

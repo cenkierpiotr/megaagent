@@ -1,0 +1,119 @@
+services:
+  claw-postgres:
+    image: postgres:15-alpine
+    container_name: claw_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-claw}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-claw_password}
+      POSTGRES_DB: ${POSTGRES_DB:-claw_db}
+    volumes:
+      - ./shared/postgres_data:/var/lib/postgresql/data
+    networks:
+      - claw-net
+
+  claw-redis:
+    image: redis:7-alpine
+    container_name: claw_redis
+    restart: always
+    networks:
+      - claw-net
+
+  claw-core:
+    build:
+      context: ./core
+    container_name: claw_core
+    depends_on:
+      - claw-redis
+      - claw-postgres
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health-check || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    environment:
+      - REDIS_URL=redis://claw-redis:6379/0
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-claw}:${POSTGRES_PASSWORD:-claw_password}@claw-postgres:5432/${POSTGRES_DB:-claw_db}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - LLM_MODEL=${LLM_MODEL:-llama3}
+      - LLM_MODEL_LIGHT=${LLM_MODEL_LIGHT:-llama3:3b}
+    volumes:
+      - ./core:/app
+      - ./shared:/app/shared
+    privileged: true
+    pid: "host"
+    networks:
+      - claw-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  claw-web:
+    build:
+      context: ./web
+    container_name: claw_web
+    restart: always
+    depends_on:
+      - claw-core
+      - claw-redis
+    environment:
+      - REDIS_URL=redis://claw-redis:6379/0
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - PORT=3000
+    ports:
+      - "3000:3000"
+    networks:
+      - claw-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  claw-gateway:
+    build:
+      context: ./gateway
+    container_name: claw_gateway
+    depends_on:
+      - claw-redis
+    environment:
+      - REDIS_URL=redis://claw-redis:6379/0
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    networks:
+      - claw-net
+
+  claw-multimodal:
+    build:
+      context: ./multimodal
+    container_name: claw_multimodal
+    # Conditionally enable GPU if HAS_GPU is true
+    # Note: Docker Compose doesn't support full conditional logic for 'deploy' easily without separate files
+    # but we can use profile or just keep it as is if the user has nvidia-container-runtime configured.
+    # We will use reservation which fails gracefully if driver is missing in some setups, 
+    # but to be safe we would ideally use a profile.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: ${GPU_COUNT:-0}
+              capabilities: [gpu]
+        limits:
+          cpus: '4.0'
+          memory: 8G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - ./multimodal:/app
+    environment:
+      - REDIS_URL=redis://claw-redis:6379/0
+    networks:
+      - claw-net
+
+networks:
+  claw-net:
+    driver: bridge

@@ -1,8 +1,0 @@
-faster-whisper
-piper-tts
-moviepy
-requests
-pillow
-flask
-redis
-pydantic
