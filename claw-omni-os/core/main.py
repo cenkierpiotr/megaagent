@@ -140,15 +140,39 @@ core = ClawCore()
 
 @app.get("/api/health-check")
 async def health_check():
-    """Literal recovery: check http://localhost:11434 and http://host.docker.internal:11434"""
+    """Literal recovery with dynamic fallback: check Redis setting first, then env, then default"""
     results = {}
-    for url in ["http://localhost:11434", "http://host.docker.internal:11434"]:
+    
+    # 1. Check Dynamic Setting from Redis dashboard
+    dynamic_url = core.r.get("setting:ollama_url")
+    test_urls = []
+    if dynamic_url:
+        test_urls.append(dynamic_url.strip())
+        
+    # 2. Add defaults
+    test_urls.extend([
+        core.ollama_base_url.strip(),
+        "http://host.docker.internal:11434",
+        "http://localhost:11434"
+    ])
+    
+    # 3. Test iterate
+    # Remove duplicates preserving order
+    unique_urls = []
+    for u in test_urls:
+        if u not in unique_urls:
+            unique_urls.append(u)
+            
+    for url in unique_urls:
         try:
-            res = requests.get(f"{url}/api/tags", timeout=2)
+            # Strip trailing slash just in case
+            target = url.rstrip("/")
+            res = requests.get(f"{target}/api/tags", timeout=2)
             if res.status_code == 200:
-                return {"status": "online", "found_at": url}
+                return {"status": "online", "found_at": target}
         except:
             continue
+            
     return {"status": "offline"}, 503
 
 @app.post("/api/vram-purge")
