@@ -54,6 +54,7 @@ export default function Dashboard() {
   const [agentStatus, setAgentStatus] = useState<Record<string, AgentStatus>>({});
   const [telemetry, setTelemetry] = useState<Telemetry>({ cpu: 0, ram: 0, vram: "N/A", temp: "N/A", gpu_util: 0 });
   const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [isDiscovering, setIsDiscovering] = useState(false);
   const [testResult, setTestResult] = useState<{status: string, message: string} | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -273,6 +274,29 @@ export default function Dashboard() {
       setTestResult({ status: 'error', message: 'Network error occurred while testing.' });
     } finally {
       setIsTestingConnection(false);
+    }
+  };
+
+  const discoverOllama = async () => {
+    setIsDiscovering(true);
+    setTestResult({ status: 'info', message: 'Scanning network for Ollama node...' });
+    try {
+      const res = await fetch('/api/ollama/discover');
+      const data = await res.json();
+      if (data.status === 'success' && data.options.length > 0) {
+        const found = data.options[0];
+        setOllamaUrl(found.url);
+        setTestResult({ status: 'success', message: `Magic! Found Ollama on port ${found.port}.` });
+        setOllamaStatus('connected');
+        // Refresh models from found instance
+        refreshModels();
+      } else {
+        setTestResult({ status: 'error', message: data.message });
+      }
+    } catch (e) {
+      setTestResult({ status: 'error', message: 'Neural scan failed. Check backbone connectivity.' });
+    } finally {
+      setIsDiscovering(false);
     }
   };
 
@@ -578,14 +602,27 @@ export default function Dashboard() {
                         />
                         <button 
                           onClick={testConnection}
-                          disabled={isTestingConnection}
+                          disabled={isTestingConnection || isDiscovering}
                           className={`px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${isTestingConnection ? 'bg-zinc-800 text-zinc-500' : 'bg-white/5 hover:bg-white/10 border border-white/10'}`}
                         >
                           {isTestingConnection ? 'Testing...' : 'Test'}
                         </button>
+                        <button 
+                          onClick={discoverOllama}
+                          disabled={isDiscovering || isTestingConnection}
+                          title="Auto-scan for Ollama port"
+                          className={`px-4 rounded-2xl text-blue-400 transition-all flex items-center justify-center gap-2 border border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 ${isDiscovering ? 'animate-pulse' : ''}`}
+                        >
+                          <span className="material-symbols-outlined text-[18px]">explore</span>
+                          <span className="text-[9px] font-black uppercase tracking-widest">{isDiscovering ? 'Scanning' : 'Auto-Detect'}</span>
+                        </button>
                       </div>
                       {testResult && (
-                        <div className={`mt-3 px-4 py-2 rounded-xl border text-[10px] font-bold ${testResult.status === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
+                        <div className={`mt-3 px-4 py-2 rounded-xl border text-[10px] font-bold ${
+                          testResult.status === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 
+                          testResult.status === 'info' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' :
+                          'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                        }`}>
                           {testResult.message}
                         </div>
                       )}
