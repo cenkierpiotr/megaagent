@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import redis from 'redis';
+import { createClient } from 'redis';
 
-const client = redis.createClient({
+const client = createClient({
     url: process.env.REDIS_URL || 'redis://redis:6379/0'
 });
 

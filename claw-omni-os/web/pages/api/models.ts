@@ -8,8 +8,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const response = await axios.get(`${OLLAMA_URL}/api/tags`, { timeout: 2000 });
     const models = response.data.models.map((m: any) => m.name);
     res.status(200).json({ status: 'connected', models });
-  } catch (error) {
-    console.error('Ollama connection failed:', error.message);
+  } catch (error: any) {
+    console.error('Ollama connection failed:', error?.message || error);
     res.status(200).json({ 
       status: 'disconnected', 
       models: ['llama3', 'mistral', 'codellama'],
