@@ -72,16 +72,8 @@ fi
 echo ""
 
 # ── Step 4: Frontend Build ─────────────────────────────────────
-echo -e "${BOLD}[4/5] Frontend Pre-Build${NC}"
-if [ -d "./web" ]; then
-  echo -e "  → Running npm install --force..."
-  cd web
-  npm install --force
-  echo -e "  → Running npm run build..."
-  npm run build
-  cd ..
-  echo -e "  ${GREEN}✓${NC} Frontend built successfully"
-fi
+echo -e "${BOLD}[4/5] Frontend Build (Inside Docker)${NC}"
+echo -e "  → Skyping local host build (handled by Dockerfile)"
 echo ""
 
 # ── Step 5: Docker Compose Up ─────────────────────────────────
