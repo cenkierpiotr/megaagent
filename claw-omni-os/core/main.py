@@ -70,6 +70,20 @@ class ClawCore:
             llm=self.llm,
             verbose=True
         )
+        self.researcher = Agent(
+            role='Insight Researcher',
+            goal='Extract knowledge and perform deep analysis.',
+            backstory='High-level intelligence specialized in information retrieval.',
+            llm=self.llm,
+            verbose=True
+        )
+        self.artist = Agent(
+            role='Visual Designer',
+            goal='Create high-quality visual assets and graphics.',
+            backstory='Creative engine of the system.',
+            llm=self.llm,
+            verbose=True
+        )
 
     def setup_agents(self):
         # Already initialized in __init__
@@ -91,8 +105,12 @@ class ClawCore:
             chat_id = task_dict.get("chat_id")
             direct_action = task_dict.get("direct_action")
             
-            manager_model = task_dict.get("model_manager", task_dict.get("model", "llama3"))
-            coder_model = task_dict.get("model_coder", manager_model)
+            # Fetch granular model overrides
+            manager_model = task_dict.get("model_manager", "llama3")
+            coder_model = task_dict.get("model_coder", "codellama")
+            researcher_model = task_dict.get("model_researcher", "mistral")
+            artist_model = task_dict.get("model_artist", "llava")
+            
             history = task_dict.get("history", [])
             capability = task_dict.get("capability", "text")
             
@@ -106,39 +124,39 @@ class ClawCore:
                 prompt = "Analyze the project structure and suggest improvements for security and performance."
                 capability = "text"
 
-            # Dynamic Agent adjustments
+            # Dynamic Agent adjustments based on capability
             if capability == "graphics":
-                self.manager.goal = "Create high-quality visual assets and graphics."
-                self.manager.backstory = "Expert digital artist and designer."
+                self.artist.goal = "Create high-quality visual assets and graphics."
+                self.artist.backstory = "Expert digital artist and designer."
+                active_agent = self.artist
             elif capability == "video":
-                self.manager.goal = "Generate and edit motion graphics or video content."
-                self.manager.backstory = "Professional video editor and motion designer."
+                self.artist.goal = "Generate and edit motion graphics or video content."
+                active_agent = self.artist
             elif capability == "audio":
-                self.manager.goal = "Synthesize audio, voiceovers, or musical elements."
-                self.manager.backstory = "Expert sound engineer and audio producer."
+                self.researcher.goal = "Synthesize audio, voiceovers, or musical elements."
+                active_agent = self.researcher
             else:
-                self.manager.goal = "Orchestrate all system tasks and manage hardware resources."
-                self.manager.backstory = "Primary intelligence of Claw-Omni-OS."
+                active_agent = self.manager
 
-            # Update LLMs
-            manager_llm = Ollama(model=manager_model, base_url=os.getenv("OLLAMA_BASE_URL"))
-            coder_llm = Ollama(model=coder_model, base_url=os.getenv("OLLAMA_BASE_URL"))
-            self.manager.llm = manager_llm
-            self.coder.llm = coder_llm
+            # Update LLMs for all agents
+            self.manager.llm = Ollama(model=manager_model, base_url=os.getenv("OLLAMA_BASE_URL"))
+            self.coder.llm = Ollama(model=coder_model, base_url=os.getenv("OLLAMA_BASE_URL"))
+            self.researcher.llm = Ollama(model=researcher_model, base_url=os.getenv("OLLAMA_BASE_URL"))
+            self.artist.llm = Ollama(model=artist_model, base_url=os.getenv("OLLAMA_BASE_URL"))
 
-            await self.update_agent_status("Manager", "Executing", prompt[:50])
-            await self.update_agent_status("Coder", "Waiting")
+            await self.update_agent_status(active_agent.role.split()[-1], "Executing", prompt[:50])
 
             # Execution
             context_prompt = f"Selected Modal: {capability}\nHistory:\n" + "\n".join([f"{m['role']}: {m['content']}" for m in history[-3:]])
             full_prompt = f"{context_prompt}\nUser: {prompt}"
             
-            crew_task = Task(description=full_prompt, agent=self.manager, expected_output=f"Concise result for {capability} task.")
-            crew = Crew(agents=[self.manager, self.coder], tasks=[crew_task], process=Process.sequential)
+            crew_task = Task(description=full_prompt, agent=active_agent, expected_output=f"Concise result for {capability} task.")
+            crew = Crew(agents=[self.manager, self.coder, self.researcher, self.artist], tasks=[crew_task], process=Process.sequential)
             result = crew.kickoff()
             
-            await self.update_agent_status("Manager", "Idle")
-            await self.update_agent_status("Coder", "Idle")
+            # Reset all
+            for a in ["manager", "coder", "researcher", "artist"]:
+                await self.update_agent_status(a, "Idle")
 
             # Publish result
             response = {"source": source, "chat_id": chat_id, "result": str(result), "capability": capability}
@@ -146,7 +164,7 @@ class ClawCore:
             
         except Exception as e:
             await self.update_agent_status("Manager", "Error", str(e))
-            print(f"❌ Error: {e}")
+            print(f"❌ Error in process_task: {e}")
 
     def run(self):
         self.setup_agents()

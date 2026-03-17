@@ -9,18 +9,21 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "latest",
-    "react": "latest",
-    "react-dom": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "axios": "latest",
     "lucide-react": "latest",
+    "next": "latest",
     "next-auth": "latest",
     "otplib": "latest",
     "qrcode": "latest",
-    "socket.io-client": "latest",
+    "react": "latest",
+    "react-dom": "latest",
     "redis": "latest",
-    "axios": "latest",
-    "@types/node": "latest",
-    "@types/react": "latest",
-    "@types/react-dom": "latest"
+    "socket.io-client": "latest"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
   }
 }
