@@ -6,6 +6,7 @@ const COMMON_PORTS = [11434, 14500, 11435, 11436, 11437];
 export async function GET() {
   const results = [];
   const hosts = [
+    "ollama-host",
     "host.docker.internal", 
     "172.17.0.1", 
     "172.18.0.1", 

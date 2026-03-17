@@ -97,8 +97,8 @@ ensure_ollama_running
 sync_models
 
 # Output for parent script consumption
-# Convert localhost/127.0.0.1 to host.docker.internal for containers
-FINAL_URL=$(echo "$OLLAMA_BASE_URL" | sed 's/localhost/host.docker.internal/' | sed 's/127.0.0.1/host.docker.internal/')
+# Convert localhost/127.0.0.1 to ollama-host (mapped to gateway)
+FINAL_URL=$(echo "$OLLAMA_BASE_URL" | sed 's/localhost/ollama-host/' | sed 's/127.0.0.1/ollama-host/')
 echo "OLLAMA_BASE_URL=$FINAL_URL" > .ollama_discovery
 echo -e "  ${GREEN}✅${NC} Configuration saved to ${BOLD}.ollama_discovery${NC} (URL: ${FINAL_URL})"
 echo ""

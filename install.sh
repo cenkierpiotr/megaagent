@@ -58,12 +58,17 @@ echo -e "${BOLD}[3/5] Ollama & Environment Setup${NC}"
 
 # Load discovered URL
 if [ -f .ollama_discovery ]; then
-  # Use grep/awk to avoid 'source' issues in some shells if needed, 
-  # but here we use simple assignment extraction
   OLL_URL=$(grep OLLAMA_BASE_URL .ollama_discovery | cut -d'=' -f2)
   rm .ollama_discovery
 else
-  OLL_URL="http://host.docker.internal:11434"
+  # Linux-specific definitive host IP detection for Docker
+  HOST_IP=$(ip -4 addr show docker0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n1 || ip route | grep default | awk '{print $3}' | head -n1)
+  if [ -n "$HOST_IP" ]; then
+    OLL_URL="http://${HOST_IP}:14500"
+    echo -e "  ${CYAN}ℹ${NC} Detected host gateway at ${BOLD}${HOST_IP}${NC}. Using for Ollama."
+  else
+    OLL_URL="http://host.docker.internal:14500"
+  fi
 fi
 
 if [ ! -f .env ]; then
