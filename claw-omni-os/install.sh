@@ -1,46 +1,99 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# install.sh — Claw-Omni-OS Full Installation Wizard
+set -e
 
-echo "🚀 Starting Claw-Omni-OS Installation Wizard"
-echo "------------------------------------------"
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
 
-# 1. Check for Docker
-if ! command -v docker &> /dev/null; then
-    echo "❌ Docker is not installed. Please install Docker first."
-    exit 1
+echo -e "${CYAN}${BOLD}"
+echo "  ██████╗██╗      █████╗ ██╗    ██╗"
+echo " ██╔════╝██║     ██╔══██╗██║    ██║"
+echo " ██║     ██║     ███████║██║ █╗ ██║"
+echo " ██║     ██║     ██╔══██║██║███╗██║"
+echo " ╚██████╗███████╗██║  ██║╚███╔███╔╝"
+echo "  ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝"
+echo -e " Claw-Omni-OS » Installation Wizard${NC}"
+echo ""
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# ── Step 0: Pre-Flight ─────────────────────────────────────────
+echo -e "${BOLD}[0/5] Pre-Flight Check${NC}"
+if [ -f "./check-env.sh" ]; then
+  bash ./check-env.sh || true  # non-fatal, just warn
 fi
+echo ""
 
-# 2. Check for NVIDIA Drivers (Optional)
-if command -v nvidia-smi &> /dev/null; then
-    echo "✅ NVIDIA GPU Detected. Enabling Hardware Acceleration."
-    HAS_GPU=true
+# ── Step 1: Docker ─────────────────────────────────────────────
+echo -e "${BOLD}[1/5] Verifying Docker${NC}"
+if ! command -v docker &>/dev/null; then
+  echo -e "  ${RED}✗${NC} Docker not found. Install from https://docker.com"
+  exit 1
+fi
+echo -e "  ${GREEN}✓${NC} Docker: $(docker --version)"
+echo ""
+
+# ── Step 2: GPU Detection ──────────────────────────────────────
+echo -e "${BOLD}[2/5] GPU Detection${NC}"
+if command -v nvidia-smi &>/dev/null; then
+  GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -n1)
+  echo -e "  ${GREEN}✓${NC} Detected: ${GPU_NAME} — Hardware Acceleration ENABLED"
+  HAS_GPU=true
 else
-    echo "🟡 No NVIDIA GPU detected. Falling back to CPU mode."
-    HAS_GPU=false
+  echo -e "  ${YELLOW}⚠${NC}  No NVIDIA GPU detected — CPU fallback mode"
+  HAS_GPU=false
 fi
+echo ""
 
-# 3. Setup .env
+# ── Step 3: .env Setup ─────────────────────────────────────────
+echo -e "${BOLD}[3/5] Environment Configuration${NC}"
 if [ ! -f .env ]; then
-    echo "📝 Creating .env file..."
-    read -p "Enter Telegram Bot Token (optional): " TG_TOKEN
-    read -p "Enter Serper.dev API Key (optional): " SERPER_KEY
-    
-    cat <<EOF > .env
-TELEGRAM_BOT_TOKEN=$TG_TOKEN
-SERPER_API_KEY=$SERPER_KEY
-OLLAMA_BASE_URL=http://host.docker.internal:11434
+  echo -e "  ${YELLOW}→${NC}  Creating .env (press Enter to skip optional fields)"
+  read -p "  Telegram Bot Token (optional): " TG_TOKEN
+  read -p "  Serper.dev API Key (optional): " SERPER_KEY
+  read -p "  Ollama URL [http://host.docker.internal:11434]: " OLL_URL
+  OLL_URL="${OLL_URL:-http://host.docker.internal:11434}"
+  
+  cat <<EOF > .env
+TELEGRAM_BOT_TOKEN=${TG_TOKEN}
+SERPER_API_KEY=${SERPER_KEY}
+OLLAMA_BASE_URL=${OLL_URL}
 REDIS_URL=redis://claw-redis:6379/0
 EOF
+  echo -e "  ${GREEN}✓${NC} .env created"
+else
+  echo -e "  ${GREEN}✓${NC} .env already exists — skipping"
 fi
+echo ""
 
-# 4. Pull/Build Containers
-echo "Building system containers..."
-docker compose build
+# ── Step 4: Frontend Build ─────────────────────────────────────
+echo -e "${BOLD}[4/5] Frontend Pre-Build${NC}"
+if [ -d "./web" ]; then
+  echo -e "  → Running npm install --force..."
+  cd web
+  npm install --force
+  echo -e "  → Running npm run build..."
+  npm run build
+  cd ..
+  echo -e "  ${GREEN}✓${NC} Frontend built successfully"
+fi
+echo ""
 
-# 5. Starting Services
-echo "Finalizing deployment..."
-docker compose up -d
+# ── Step 5: Docker Compose Up ─────────────────────────────────
+echo -e "${BOLD}[5/5] Launching Containers${NC}"
+echo -e "  → docker compose up --build -d"
+docker compose up --build -d
 
-echo "------------------------------------------"
-echo "✅ Claw-Omni-OS is now LIVE!"
-echo "Dashboard: http://localhost:3000"
-echo "Core Engine: Running (Privileged)"
+echo ""
+echo -e "${GREEN}${BOLD}═══════════════════════════════════════"
+echo -e "  ✅  Claw-Omni-OS is now LIVE!"
+echo -e "═══════════════════════════════════════${NC}"
+echo -e "  Dashboard   : ${CYAN}http://localhost:3000${NC}"
+echo -e "  Core Engine : ${CYAN}http://localhost:8000${NC}"
+echo -e "  Health Check: ${CYAN}http://localhost:8000/api/health-check${NC}"
+echo ""

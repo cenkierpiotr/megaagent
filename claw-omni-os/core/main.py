@@ -2,9 +2,14 @@ import os
 import redis
 import json
 import asyncio
+import requests
+from datetime import datetime
+from fastapi import FastAPI, BackgroundTasks
 from crewai import Agent, Task, Crew, Process
 from langchain_community.llms import Ollama
 from telemetry import TelemetryCollector
+
+app = FastAPI()
 
 class ClawCore:
     def __init__(self):
@@ -22,21 +27,21 @@ class ClawCore:
         status_data = {
             "status": status,
             "task": task_desc,
-            "timestamp": datetime.now().timestamp() if 'datetime' in globals() else 0
+            "timestamp": datetime.now().timestamp()
         }
         self.r.set(f"agent_status:{agent_name.lower()}", json.dumps(status_data))
 
-    async def clear_vram(self):
+    async def clear_vram(self, model_name="llama3"):
         """Resource Governor: Unload Ollama models for heavy tasks."""
-        print("🟡 Resource Governor: Purging VRAM...")
+        print(f"🟡 Resource Governor: Purging VRAM for model {model_name}...")
         try:
-            import requests
-            # Sending keep_alive: 0 to unload a common model or the one currently active
-            # This is a simplified version of the logic
-            requests.post(f"{self.ollama_base_url}/api/generate", 
-                         json={"model": "llama3", "keep_alive": 0}, timeout=2)
-        except:
-            pass
+            # literal matching user request: POST /api/generate { "model": "...", "keep_alive": 0 }
+            res = requests.post(f"{self.ollama_base_url}/api/generate", 
+                         json={"model": model_name, "keep_alive": 0}, timeout=5)
+            return res.status_code == 200
+        except Exception as e:
+            print(f"🔴 VRAM Purge Failed: {e}")
+            return False
 
     def create_crew(self, task_desc, capability, models):
         # Define the Trinity + Manager
@@ -74,7 +79,7 @@ class ClawCore:
 
         # Build Task
         active_agent = manager
-        if capability == 'graphics' or capability == 'video':
+        if capability in ['graphics', 'video']:
             active_agent = artist
         elif capability == 'code_audit':
             active_agent = coder
@@ -112,7 +117,8 @@ class ClawCore:
                     }
                     
                     if task_data.get('direct_action') == 'clear_vram':
-                        await self.clear_vram()
+                        model_to_purge = models.get('manager', 'llama3')
+                        await self.clear_vram(model_to_purge)
                         continue
 
                     # Execute Crew
@@ -130,15 +136,32 @@ class ClawCore:
                     print(f"Task error: {e}")
             await asyncio.sleep(0.5)
 
-    async def main(self):
-        # Run Telemetry and Task Worker concurrently
-        await asyncio.gather(
-            self.telemetry.run_loop(),
-            self.task_worker()
-        )
+core = ClawCore()
+
+@app.get("/api/health-check")
+async def health_check():
+    """Literal recovery: check http://localhost:11434 and http://host.docker.internal:11434"""
+    results = {}
+    for url in ["http://localhost:11434", "http://host.docker.internal:11434"]:
+        try:
+            res = requests.get(f"{url}/api/tags", timeout=2)
+            if res.status_code == 200:
+                return {"status": "online", "found_at": url}
+        except:
+            continue
+    return {"status": "offline"}, 503
+
+@app.post("/api/vram-purge")
+async def vram_purge(data: dict):
+    model = data.get("model", "llama3")
+    success = await core.clear_vram(model)
+    return {"status": "success" if success else "failed"}
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(core.telemetry.run_loop())
+    asyncio.create_task(core.task_worker())
 
 if __name__ == "__main__":
-    import from_datetime_import_datetime
-    from datetime import datetime
-    core = ClawCore()
-    asyncio.run(core.main())
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

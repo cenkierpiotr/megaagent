@@ -36,6 +36,8 @@ services:
     pid: "host"
     networks:
       - claw-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   claw-web:
     build:
@@ -52,6 +54,8 @@ services:
       - "3000:3000"
     networks:
       - claw-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   claw-gateway:
     build:
