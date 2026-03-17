@@ -11,7 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     for (const agent of agents) {
       const data = await client.get(`agent_status:${agent}`);
-      statusMap[agent] = data ? JSON.parse(data) : { status: 'Idle', task: '' };
+      statusMap[agent] = data ? JSON.parse(data.toString()) : { status: 'Idle', task: '' };
     }
 
     res.status(200).json(statusMap);
