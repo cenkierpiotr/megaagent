@@ -22,6 +22,7 @@ services:
   claw-core:
     build:
       context: ./core
+      network: host
     container_name: claw_core
     depends_on:
       - claw-redis
@@ -42,6 +43,7 @@ services:
   claw-web:
     build:
       context: ./web
+      network: host
     container_name: claw_web
     restart: always
     depends_on:
@@ -60,6 +62,7 @@ services:
   claw-gateway:
     build:
       context: ./gateway
+      network: host
     container_name: claw_gateway
     depends_on:
       - claw-redis
