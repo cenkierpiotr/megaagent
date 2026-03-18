@@ -89,9 +89,10 @@ class ClawCore:
         config = self.governor.get_llm_config()
         # Use governor suggested model if default requested, otherwise respect override
         final_model = config['model'] if model_name in ['llama3', 'llama3:3b', 'codellama'] else model_name
-        return Ollama(
-            model=final_model, 
-            base_url=base_url
+        from crewai import LLM
+        return LLM(
+            model=f"openai/{final_model}", 
+            base_url=f"{base_url}/v1"
         )
 
     async def update_agent_status(self, agent_name, status, task_desc=""):
