@@ -673,8 +673,8 @@ export default function Dashboard() {
 
       {/* Settings Modal */}
       {isSettingsOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-3xl flex items-center justify-center z-50 p-6 animate-in fade-in duration-500">
-           <div className="bg-[#0e0e10] p-12 rounded-[3.5rem] border border-white/10 shadow-[0_0_100px_rgba(0,0,0,1)] w-full max-w-2xl transform animate-in zoom-in-95 duration-500 overflow-y-auto max-h-[90vh] custom-scrollbar">
+        <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 p-6 animate-in fade-in duration-500">
+           <div className="bg-zinc-950 p-12 rounded-[3.5rem] border border-white/20 w-full max-w-2xl transform animate-in zoom-in-95 duration-500 overflow-y-auto max-h-[90vh] custom-scrollbar">
               <div className="flex justify-between items-start mb-12">
                 <div>
                   <h2 className="text-4xl font-black mb-3 tracking-tighter uppercase italic">Node Control</h2>
@@ -693,7 +693,7 @@ export default function Dashboard() {
                           type="text" 
                           value={ollamaUrl} 
                           onChange={(e) => {setOllamaUrl(e.target.value); setTestResult(null);}} 
-                          className="flex-1 bg-black/40 border border-white/5 rounded-2xl p-4 text-[13px] focus:border-blue-500 outline-none font-mono text-blue-400 transition-all"
+                          className="flex-1 bg-zinc-900 border border-zinc-700 rounded-2xl p-4 text-[13px] focus:border-blue-500 outline-none font-mono text-blue-400 transition-all"
                           placeholder="http://host.docker.internal:11434"
                         />
                         <button 
@@ -725,7 +725,7 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <label className="block text-[10px] font-black text-zinc-600 uppercase mb-4 tracking-[0.2em]">Compute Preference</label>
-                      <div className="flex bg-black/60 p-2 rounded-[1.75rem] border border-white/5">
+                      <div className="flex bg-zinc-900 p-2 rounded-[1.75rem] border border-zinc-700">
                         {['auto', 'cpu', 'gpu'].map((m) => (
                           <button key={m} onClick={() => setHwMode(m)} className={`flex-1 py-3 rounded-2xl text-[10px] uppercase font-black tracking-widest transition-all ${hwMode === m ? 'bg-blue-500 text-white shadow-xl shadow-blue-500/30' : 'text-zinc-600 hover:text-zinc-400'}`}>{m}</button>
                         ))}
@@ -758,13 +758,13 @@ export default function Dashboard() {
                                     <select 
                                         value={cfg.val} 
                                         onChange={(e) => cfg.set(e.target.value)} 
-                                        className={`flex-1 bg-black/40 border border-white/5 rounded-2xl p-4 text-xs font-bold focus:border-blue-500 outline-none appearance-none ${!models.includes(cfg.val) ? 'text-rose-400 border-rose-500/30' : 'text-emerald-400 border-emerald-500/30'}`}
+                                        className={`flex-1 bg-zinc-900 border rounded-2xl p-4 text-xs font-bold focus:border-blue-500 outline-none ${!models.includes(cfg.val) ? 'text-rose-400 border-rose-500' : 'text-emerald-400 border-zinc-700'}`}
                                     >
                                         {models.length > 0 ? models.map(m => (
-                                            <option key={m} value={m} className="bg-[#0e0e10]">
+                                            <option key={m} value={m} className="bg-zinc-900 text-white">
                                                 {m} {m === cfg.rec ? '⭐' : ''}
                                             </option>
-                                        )) : <option>{cfg.val} (offline)</option>}
+                                        )) : <option value={cfg.val}>{cfg.val} (offline)</option>}
                                     </select>
                                     {!models.includes(cfg.rec) && (
                                         <button 
