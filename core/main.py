@@ -280,6 +280,16 @@ class ClawCore:
                         self.r.ltrim("web_results:web_user", 0, 49) # Keep last 50
                 except Exception as e:
                     print(f"Task error: {e}")
+                    try:
+                        if 'task_data' in locals() and task_data.get('stream_id'):
+                            err_msg = {
+                                "status": "completed", 
+                                "result": f"❌ Core Exception: {str(e)}",
+                                "agent": "System Error"
+                            }
+                            self.r.publish(f"chat_status:{task_data.get('stream_id')}", json.dumps(err_msg))
+                    except Exception as inner_e:
+                        print(f"Failed to publish error: {inner_e}")
             await asyncio.sleep(0.5)
 
 core = ClawCore()

@@ -628,7 +628,7 @@ export default function Dashboard() {
                  </p>
                  <div className="bg-white/[0.03] p-6 rounded-[2rem] rounded-tl-none border border-white/10 shadow-2xl">
                     <p className="text-xs text-slate-400 font-medium italic leading-relaxed">
-                       {Object.values(agentStatus).find(s => s.status === 'Computing')?.task || "Synchronizing with collective brain..."}
+                       {Object.values(agentStatus).find(s => ['Computing', 'Queued', 'Starting'].includes(s.status))?.task || "Synchronizing with collective brain..."}
                     </p>
                     <div className="mt-4 flex gap-1.5">
                        <span className="w-1.5 h-1.5 bg-[#3c83f6]/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
