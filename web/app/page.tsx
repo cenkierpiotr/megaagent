@@ -203,20 +203,24 @@ export default function Dashboard() {
           try {
             const data = JSON.parse(line);
             
-            if (data.status === 'working') {
+            if (data.status === 'working' || data.status === 'queued' || data.status === 'starting') {
                 // Map "Lead Coder" -> "coder", "System Manager" -> "manager", etc.
-                const role = data.agent.toLowerCase();
+                const role = (data.agent || 'manager').toLowerCase();
                 const agentId = role.includes('manager') ? 'manager' : 
                                 role.includes('coder') ? 'coder' : 
                                 role.includes('researcher') ? 'researcher' : 
                                 role.includes('artist') ? 'artist' : 'manager';
 
+                let displayTask = data.thought || data.message || "Computing...";
+                if (data.status === 'queued') displayTask = "Task queued for execution...";
+                if (data.status === 'starting') displayTask = "Waking up neural pathways...";
+
                 setAgentStatus(prev => ({
                     ...prev,
                     [agentId]: {
-                        status: 'Computing',
-                        task: data.thought,
-                        timestamp: data.timestamp
+                        status: data.status === 'queued' ? 'Queued' : data.status === 'starting' ? 'Starting' : 'Computing',
+                        task: displayTask,
+                        timestamp: data.timestamp || Date.now()
                     }
                 }));
             } else if (data.status === 'completed') {
