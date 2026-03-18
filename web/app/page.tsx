@@ -113,7 +113,19 @@ export default function Dashboard() {
       ]);
       const agents = await agentRes.json();
       const tel = await telRes.json();
-      setAgentStatus(agents);
+      
+      setAgentStatus(prev => {
+        const next = { ...prev };
+        Object.keys(agents).forEach(k => {
+          // Do not overwrite an active stream status with an 'Idle' poll result
+          const currentStatus = next[k]?.status;
+          const isCurrentlyActive = currentStatus && currentStatus !== 'Idle' && currentStatus !== 'completed';
+          if (!isCurrentlyActive || agents[k].status !== 'Idle') {
+            next[k] = agents[k];
+          }
+        });
+        return next;
+      });
       setTelemetry(tel);
     } catch (e) {
       console.error("Telemetry fetch failed");

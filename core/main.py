@@ -1,4 +1,7 @@
 import os
+os.environ["CREWAI_DISABLE_TELEMETRY"] = "true"
+os.environ["OTEL_SDK_DISABLED"] = "true"
+
 import redis
 import json
 import asyncio

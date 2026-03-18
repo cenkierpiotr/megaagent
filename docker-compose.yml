@@ -42,6 +42,8 @@ services:
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       - LLM_MODEL=${LLM_MODEL:-llama3}
       - LLM_MODEL_LIGHT=${LLM_MODEL_LIGHT:-llama3:3b}
+      - CREWAI_DISABLE_TELEMETRY=true
+      - OTEL_SDK_DISABLED=true
     volumes:
       - ./core:/app
       - ./shared:/app/shared
