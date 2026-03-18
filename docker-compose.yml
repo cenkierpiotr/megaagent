@@ -122,22 +122,6 @@ services:
     networks:
       - claw-net
 
-  # LiteLLM Proxy for Ollama Unified API
-  claw-litellm:
-    image: ghcr.io/berriai/litellm:main-latest
-    container_name: claw_litellm
-    restart: always
-    volumes:
-      - ./litellm_config.yaml:/app/config.yaml
-    command: ["--config", "/app/config.yaml", "--port", "11434"]
-    ports:
-      - "11434:11434"
-    networks:
-      - claw-net
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-      - "ollama-host:host-gateway"
-
 networks:
   claw-net:
     driver: bridge

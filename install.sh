@@ -82,7 +82,7 @@ DOMAIN=localhost
 TELEGRAM_BOT_TOKEN=${TG_TOKEN}
 SERPER_API_KEY=${SERPER_KEY}
 OPENAI_API_KEY=sk-placeholder-since-we-use-ollama
-OLLAMA_BASE_URL=http://claw-litellm:11434
+OLLAMA_BASE_URL=${OLL_URL}
 REDIS_URL=redis://claw-redis:6379/0
 POSTGRES_USER=claw
 POSTGRES_PASSWORD=claw_password
@@ -90,30 +90,8 @@ POSTGRES_DB=claw_db
 HAS_GPU=${HAS_GPU}
 GPU_COUNT=${GPU_COUNT}
 PORT=3000
-# Real Ollama address for LiteLLM routing
-OLLAMA_HOST_URL=${OLL_URL}
+OPENAI_API_KEY=sk-placeholder-since-we-use-ollama
 EOF
-
-  echo -e "  ${YELLOW}→${NC}  Generating litellm_config.yaml for LiteLLM Proxy"
-  cat <<LITEOF > litellm_config.yaml
-model_list:
-  - model_name: llama3
-    litellm_params:
-      model: ollama/llama3
-      api_base: ${OLL_URL}
-  - model_name: codellama
-    litellm_params:
-      model: ollama/codellama
-      api_base: ${OLL_URL}
-  - model_name: mistral
-    litellm_params:
-      model: ollama/mistral
-      api_base: ${OLL_URL}
-  - model_name: llava
-    litellm_params:
-      model: ollama/llava
-      api_base: ${OLL_URL}
-LITEOF
 
   # ── Step 3.5: Dynamic GPU Override ──────────────────────────
   if [ "$HAS_GPU" = "true" ]; then
@@ -135,39 +113,10 @@ EOF
   fi
   echo -e "  ${GREEN}✓${NC} .env created with Ollama at ${OLL_URL}"
 else
-  echo -e "  ${GREEN}✓${NC} .env already exists — appending LiteLLM configurations"
-  # Inject/update variables required for lite-llm
-  if ! grep -q "OLLAMA_HOST_URL" .env; then
-    echo "OLLAMA_HOST_URL=${OLL_URL}" >> .env
-  else
-    sed -i "s|OLLAMA_HOST_URL=.*|OLLAMA_HOST_URL=${OLL_URL}|" .env
-  fi
+  echo -e "  ${GREEN}✓${NC} .env already exists — skipping creation"
   if ! grep -q "OPENAI_API_KEY" .env; then
     echo "OPENAI_API_KEY=sk-placeholder-since-we-use-ollama" >> .env
   fi
-  # Override OLLAMA_BASE_URL to point to internal LiteLLM service
-  sed -i "s|OLLAMA_BASE_URL=.*|OLLAMA_BASE_URL=http://claw-litellm:11434|" .env
-
-  echo -e "  ${YELLOW}→${NC}  Re-generating litellm_config.yaml for LiteLLM Proxy"
-  cat <<LITEOF > litellm_config.yaml
-model_list:
-  - model_name: llama3
-    litellm_params:
-      model: ollama/llama3
-      api_base: ${OLL_URL}
-  - model_name: codellama
-    litellm_params:
-      model: ollama/codellama
-      api_base: ${OLL_URL}
-  - model_name: mistral
-    litellm_params:
-      model: ollama/mistral
-      api_base: ${OLL_URL}
-  - model_name: llava
-    litellm_params:
-      model: ollama/llava
-      api_base: ${OLL_URL}
-LITEOF
 fi
 echo ""
 

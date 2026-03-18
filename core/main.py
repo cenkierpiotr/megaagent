@@ -82,18 +82,40 @@ class ClawCore:
             print(f"🔴 DB Logging Failed: {e}")
 
     def get_llm(self, model_name):
-        # Refresh URL from Redis if override exists
-        override_url = self.r.get('ollama_base_url_override')
-        base_url = override_url if override_url else self.ollama_base_url
-
         config = self.governor.get_llm_config()
-        # Use governor suggested model if default requested, otherwise respect override
         final_model = config['model'] if model_name in ['llama3', 'llama3:3b', 'codellama'] else model_name
+        
+        # Look up provider configuration from Redis mapping
+        provider_raw = self.r.get(f"model_provider_map:{final_model}")
+        if provider_raw:
+            import json
+            try:
+                 provider = json.loads(provider_raw)
+                 base_url = provider['url']
+                 provider_type = provider['type']
+                 api_key = provider.get('apiKey', '')
+            except Exception:
+                 base_url = self.ollama_base_url
+                 provider_type = "ollama"
+                 api_key = ""
+        else:
+            override_url = self.r.get('ollama_base_url_override')
+            base_url = override_url if override_url else self.ollama_base_url
+            provider_type = "ollama"
+            api_key = ""
+
         from crewai import LLM
-        return LLM(
-            model=f"openai/{final_model}", 
-            base_url=f"{base_url}/v1"
-        )
+        if provider_type == "openai":
+            return LLM(
+                model=f"openai/{final_model}", 
+                base_url=f"{base_url}/v1",
+                api_key=api_key if api_key else os.environ.get("OPENAI_API_KEY", "sk-placeholder-since-we-use-ollama")
+            )
+        else:
+            return LLM(
+                model=f"ollama/{final_model}", 
+                base_url=base_url
+            )
 
     async def update_agent_status(self, agent_name, status, task_desc=""):
         status_data = {

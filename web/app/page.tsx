@@ -38,6 +38,7 @@ export default function Dashboard() {
   const [modelResearcher, setModelResearcher] = useState("mistral");
   const [modelArtist, setModelArtist] = useState("llava");
   const [ollamaUrl, setOllamaUrl] = useState("http://host.docker.internal:11434");
+  const [providers, setProviders] = useState<any[]>([]);
   
   const recommendations: Record<string, string> = {
     manager: "llama3",
@@ -100,6 +101,7 @@ export default function Dashboard() {
       if (data.model_researcher) setModelResearcher(data.model_researcher);
       if (data.model_artist) setModelArtist(data.model_artist);
       if (data.ollama_url) setOllamaUrl(data.ollama_url);
+      if (data.providers) setProviders(data.providers);
     } catch (e) {
       console.error("Failed to load settings");
     }
@@ -306,7 +308,8 @@ export default function Dashboard() {
         model_coder: modelCoder,
         model_researcher: modelResearcher,
         model_artist: modelArtist,
-        ollama_url: ollamaUrl
+        ollama_url: ollamaUrl,
+        providers: providers
       })
     });
     setIsSettingsOpen(false);
@@ -356,8 +359,11 @@ export default function Dashboard() {
       const data = await res.json();
       if (data.status === 'success' && data.options.length > 0) {
         const found = data.options[0];
-        setOllamaUrl(found.url);
-        setTestResult({ status: 'success', message: `Magic! Found Ollama on port ${found.port}.` });
+        setProviders(prev => {
+          if (prev.some(p => p.url === found.url)) return prev;
+          return [...prev, { type: 'ollama', url: found.url, apiKey: '' }];
+        });
+        setTestResult({ status: 'success', message: `Magic! Appended Ollama on port ${found.port} to Nodes list.` });
         setOllamaStatus('connected');
         // Refresh models from found instance
         refreshModels();
@@ -699,41 +705,72 @@ export default function Dashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div className="space-y-8">
                     <div>
-                      <label className="block text-[10px] font-black text-zinc-600 uppercase mb-4 tracking-[0.2em]">Ollama Endlink</label>
-                      <div className="flex gap-3">
-                        <input 
-                          type="text" 
-                          value={ollamaUrl} 
-                          onChange={(e) => {setOllamaUrl(e.target.value); setTestResult(null);}} 
-                          className="flex-1 bg-zinc-900 border border-zinc-700 rounded-2xl p-4 text-[13px] focus:border-blue-500 outline-none font-mono text-blue-400 transition-all"
-                          placeholder="http://host.docker.internal:11434"
-                        />
-                        <button 
-                          onClick={testConnection}
-                          disabled={isTestingConnection || isDiscovering}
-                          className={`px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${isTestingConnection ? 'bg-zinc-800 text-zinc-500' : 'bg-white/5 hover:bg-white/10 border border-white/10'}`}
-                        >
-                          {isTestingConnection ? 'Testing...' : 'Test'}
-                        </button>
-                        <button 
-                          onClick={discoverOllama}
-                          disabled={isDiscovering || isTestingConnection}
-                          title="Auto-scan for Ollama port"
-                          className={`px-4 rounded-2xl text-blue-400 transition-all flex items-center justify-center gap-2 border border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 ${isDiscovering ? 'animate-pulse' : ''}`}
-                        >
-                          <span className="material-symbols-outlined text-[18px]">explore</span>
-                          <span className="text-[9px] font-black uppercase tracking-widest">{isDiscovering ? 'Scanning' : 'Auto-Detect'}</span>
-                        </button>
-                      </div>
-                      {testResult && (
-                        <div className={`mt-3 px-4 py-2 rounded-xl border text-[10px] font-bold ${
-                          testResult.status === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 
-                          testResult.status === 'info' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' :
-                          'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                        }`}>
-                          {testResult.message}
+                      <label className="block text-[10px] font-black text-zinc-600 uppercase mb-4 tracking-[0.2em]">API Nodes / LLM Gateways</label>
+                      <div className="space-y-3">
+                        {providers.map((p, idx) => (
+                          <div key={idx} className="flex gap-2 bg-zinc-900/50 p-2 rounded-2xl border border-white/5 items-center">
+                            <select 
+                              value={p.type} 
+                              onChange={(e) => {
+                                const next = [...providers];
+                                next[idx].type = e.target.value;
+                                setProviders(next);
+                              }} 
+                              className="bg-zinc-900 border border-zinc-700/50 rounded-xl px-2 py-3 text-[10px] font-black uppercase outline-none text-zinc-400"
+                            >
+                              <option value="ollama">Ollama</option>
+                              <option value="litellm">LiteLLM</option>
+                              <option value="openai">OpenAI</option>
+                            </select>
+                            <input 
+                              type="text" 
+                              value={p.url} 
+                              onChange={(e) => {
+                                const next = [...providers];
+                                next[idx].url = e.target.value;
+                                setProviders(next);
+                              }} 
+                              className="flex-1 bg-zinc-900/40 border border-zinc-700/40 rounded-xl px-3 py-3 text-[11px] font-mono focus:border-blue-500 outline-none" 
+                              placeholder="http://host:11434" 
+                            />
+                            {(p.type === 'litellm' || p.type === 'openai') && (
+                              <input 
+                                type="password" 
+                                value={p.apiKey || ''} 
+                                onChange={(e) => {
+                                  const next = [...providers];
+                                  next[idx].apiKey = e.target.value;
+                                  setProviders(next);
+                                }} 
+                                className="w-20 bg-zinc-900/40 border border-zinc-700/40 rounded-xl px-2 py-3 text-[11px] font-mono focus:border-blue-500 outline-none" 
+                                placeholder="Key" 
+                              />
+                            )}
+                            <button 
+                              onClick={() => setProviders(providers.filter((_, i) => i !== idx))} 
+                              className="p-2 hover:bg-rose-500/10 hover:text-rose-500 text-zinc-600 rounded-xl transition-all"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => setProviders([...providers, { type: 'ollama', url: 'http://', apiKey: '' }])} 
+                            className="flex-1 bg-white/5 hover:bg-white/10 p-3 rounded-xl border border-white/5 text-[9px] font-black uppercase tracking-widest text-zinc-400 transition-all"
+                          >
+                            + Add Node
+                          </button>
+                          <button 
+                            onClick={discoverOllama}
+                            disabled={isDiscovering}
+                            className="bg-blue-500/5 hover:bg-blue-500/10 text-blue-400 p-3 rounded-xl border border-blue-500/10 text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                          >
+                            <span className="material-symbols-outlined text-sm">explore</span>
+                            Auto-Detect
+                          </button>
                         </div>
-                      )}
+                      </div>
                     </div>
                     <div>
                       <label className="block text-[10px] font-black text-zinc-600 uppercase mb-4 tracking-[0.2em]">Compute Preference</label>

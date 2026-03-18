@@ -12,20 +12,28 @@ export async function GET() {
     const model_artist = await client.get('model_artist_override') || 'llava';
     const ollama_url = await client.get('ollama_base_url_override') || process.env.OLLAMA_BASE_URL || 'http://host.docker.internal:11434';
     
+    const providersRaw = await client.get('api_providers_override');
+    let providers = providersRaw ? JSON.parse(providersRaw.toString()) : [];
+
+    // Fallback/Backward compatibility
+    if (providers.length === 0) {
+      providers = [{ type: 'ollama', url: ollama_url, apiKey: '' }];
+    }
+
     return NextResponse.json({ 
-      mode, model_manager, model_coder, model_researcher, model_artist, ollama_url 
+      mode, model_manager, model_coder, model_researcher, model_artist, ollama_url, providers 
     });
   } catch (error) {
     return NextResponse.json({ error: 'Settings unavailable' }, { status: 500 });
   } finally {
-    await client.quit();
+    try { await client.quit(); } catch(e) {}
   }
 }
 
 export async function POST(req: NextRequest) {
   const client = createClient({ url: process.env.REDIS_URL || 'redis://redis:6379/0' });
   try {
-    const { mode, model_manager, model_coder, model_researcher, model_artist, ollama_url } = await req.json();
+    const { mode, model_manager, model_coder, model_researcher, model_artist, ollama_url, providers } = await req.json();
     await client.connect();
 
     if (mode) await client.set('hardware_mode_override', mode);
@@ -34,11 +42,12 @@ export async function POST(req: NextRequest) {
     if (model_researcher) await client.set('model_researcher_override', model_researcher);
     if (model_artist) await client.set('model_artist_override', model_artist);
     if (ollama_url) await client.set('ollama_base_url_override', ollama_url);
+    if (providers) await client.set('api_providers_override', JSON.stringify(providers));
     
     return NextResponse.json({ status: 'success' });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 });
   } finally {
-    await client.quit();
+    try { await client.quit(); } catch(e) {}
   }
 }
