@@ -56,7 +56,7 @@ export default function Dashboard() {
   const [telemetry, setTelemetry] = useState<Telemetry>({ cpu: 0, ram: 0, vram: "N/A", temp: "N/A", gpu_util: 0 });
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState(false);
-  const [testResult, setTestResult] = useState<{status: string, message: string} | null>(null);
+  const [testResult, setTestResult] = useState<{status: string, message: string, logs?: string[]} | null>(null);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [isAuditLogsOpen, setIsAuditLogsOpen] = useState(false);
 
@@ -363,12 +363,12 @@ export default function Dashboard() {
           if (prev.some(p => p.url === found.url)) return prev;
           return [...prev, { type: found.type || 'ollama', url: found.url, apiKey: '' }];
         });
-        setTestResult({ status: 'success', message: `Magic! Appended Ollama on port ${found.port} to Nodes list.` });
+        setTestResult({ status: 'success', message: `Magic! Appended Ollama on port ${found.port} to Nodes list.`, logs: data.logs });
         setOllamaStatus('connected');
         // Refresh models from found instance
         refreshModels();
       } else {
-        setTestResult({ status: 'error', message: data.message });
+        setTestResult({ status: 'error', message: data.message, logs: data.logs });
       }
     } catch (e) {
       setTestResult({ status: 'error', message: 'Neural scan failed. Check backbone connectivity.' });
@@ -730,7 +730,7 @@ export default function Dashboard() {
                                 next[idx].url = e.target.value;
                                 setProviders(next);
                               }} 
-                              className="flex-1 bg-zinc-900/40 border border-zinc-700/40 rounded-xl px-3 py-3 text-[11px] font-mono focus:border-blue-500 outline-none" 
+                              className="flex-1 bg-zinc-950 text-white border border-zinc-700/50 rounded-xl px-3 py-3 text-[11px] font-mono focus:border-blue-500 outline-none" 
                               placeholder="http://host:11434" 
                             />
                             {(p.type === 'litellm' || p.type === 'openai') && (
@@ -742,7 +742,7 @@ export default function Dashboard() {
                                   next[idx].apiKey = e.target.value;
                                   setProviders(next);
                                 }} 
-                                className="w-20 bg-zinc-900/40 border border-zinc-700/40 rounded-xl px-2 py-3 text-[11px] font-mono focus:border-blue-500 outline-none" 
+                                className="w-20 bg-zinc-950 text-white border border-zinc-700/50 rounded-xl px-2 py-3 text-[11px] font-mono focus:border-blue-500 outline-none" 
                                 placeholder="Key" 
                               />
                             )}
@@ -770,6 +770,16 @@ export default function Dashboard() {
                             Auto-Detect
                           </button>
                         </div>
+                        {testResult && (
+                          <div className={`mt-2 p-3 rounded-xl border text-[9px] font-mono max-h-40 overflow-y-auto custom-scrollbar ${
+                            testResult.status === 'success' ? 'bg-emerald-500/5 border-emerald-500/10 text-emerald-400/80' : 'bg-rose-500/5 border-rose-500/10 text-rose-400/80'
+                          }`}>
+                            <p className="font-black uppercase mb-1">{testResult.message}</p>
+                            {testResult.logs && testResult.logs.map((log: string, i: number) => (
+                              <div key={i} className="opacity-60">{log}</div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div>
