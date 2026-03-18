@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 
-const COMMON_PORTS = [11434, 14500, 11435, 11436, 11437];
+const COMMON_PORTS = [11434, 14500, 4000, 11435, 11436, 11437];
 
 export async function GET() {
   const results = [];
@@ -25,19 +25,23 @@ export async function GET() {
       try {
         const response = await axios.get(`${url}/api/tags`, { timeout: 1500 });
         if (response.status === 200) {
-          logs.push(`SUCCESS (Ollama): ${url}`);
+          logs.push(`✅ Ollama FOUND at ${url}`);
           return { url, port, status: 'found', type: 'ollama', models: response.data.models ? response.data.models.length : 0 };
         }
-      } catch (e: any) {}
+      } catch (e: any) {
+        logs.push(`✕ Ollama FAILED at ${url} (${e.message || 'Error'})`);
+      }
 
       // Try LiteLLM Probing
       try {
         const response = await axios.get(`${url}/v1/models`, { timeout: 1500 });
         if (response.status === 200) {
-          logs.push(`SUCCESS (LiteLLM): ${url}`);
+          logs.push(`✅ LiteLLM FOUND at ${url}`);
           return { url, port, status: 'found', type: 'litellm', models: response.data.data ? response.data.data.length : 0 };
         }
-      } catch (e: any) {}
+      } catch (e: any) {
+        logs.push(`✕ LiteLLM FAILED at ${url} (${e.message || 'Error'})`);
+      }
 
       return null;
     })
