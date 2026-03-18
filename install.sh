@@ -64,10 +64,10 @@ else
   # Linux-specific definitive host IP detection for Docker
   HOST_IP=$(ip -4 addr show docker0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n1 || ip route | grep default | awk '{print $3}' | head -n1)
   if [ -n "$HOST_IP" ]; then
-    OLL_URL="http://${HOST_IP}:14500"
+    OLL_URL="http://${HOST_IP}:11434"
     echo -e "  ${CYAN}ℹ${NC} Detected host gateway at ${BOLD}${HOST_IP}${NC}. Using for Ollama."
   else
-    OLL_URL="http://host.docker.internal:14500"
+    OLL_URL="http://host.docker.internal:11434"
   fi
 fi
 
@@ -135,7 +135,39 @@ EOF
   fi
   echo -e "  ${GREEN}✓${NC} .env created with Ollama at ${OLL_URL}"
 else
-  echo -e "  ${GREEN}✓${NC} .env already exists — skipping creation"
+  echo -e "  ${GREEN}✓${NC} .env already exists — appending LiteLLM configurations"
+  # Inject/update variables required for lite-llm
+  if ! grep -q "OLLAMA_HOST_URL" .env; then
+    echo "OLLAMA_HOST_URL=${OLL_URL}" >> .env
+  else
+    sed -i "s|OLLAMA_HOST_URL=.*|OLLAMA_HOST_URL=${OLL_URL}|" .env
+  fi
+  if ! grep -q "OPENAI_API_KEY" .env; then
+    echo "OPENAI_API_KEY=sk-placeholder-since-we-use-ollama" >> .env
+  fi
+  # Override OLLAMA_BASE_URL to point to internal LiteLLM service
+  sed -i "s|OLLAMA_BASE_URL=.*|OLLAMA_BASE_URL=http://claw-litellm:11434|" .env
+
+  echo -e "  ${YELLOW}→${NC}  Re-generating litellm_config.yaml for LiteLLM Proxy"
+  cat <<LITEOF > litellm_config.yaml
+model_list:
+  - model_name: llama3
+    litellm_params:
+      model: ollama/llama3
+      api_base: ${OLL_URL}
+  - model_name: codellama
+    litellm_params:
+      model: ollama/codellama
+      api_base: ${OLL_URL}
+  - model_name: mistral
+    litellm_params:
+      model: ollama/mistral
+      api_base: ${OLL_URL}
+  - model_name: llava
+    litellm_params:
+      model: ollama/llava
+      api_base: ${OLL_URL}
+LITEOF
 fi
 echo ""
 
