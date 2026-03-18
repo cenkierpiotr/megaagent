@@ -104,13 +104,7 @@ export default function Dashboard() {
       setAgentStatus(agents);
       setTelemetry(tel);
     } catch (e) {
-      // Mock for UI preview if API not ready
-      setTelemetry(prev => ({
-        ...prev,
-        cpu: Math.floor(Math.random() * 30 + 10),
-        ram: Math.floor(Math.random() * 20 + 40),
-        gpu_util: Math.floor(Math.random() * 15)
-      }));
+      console.error("Telemetry fetch failed");
     }
   };
   
@@ -180,20 +174,69 @@ export default function Dashboard() {
         })
       });
       
-      const data = await res.json();
+      if (!res.body) throw new Error("No response body");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
       
-      // Simulate response - in production, this comes from Redis/WebSocket
-      setTimeout(() => {
-        setIsLoading(false);
-        setMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: `Task acknowledged. Initiating ${selectedCapability} execution. Results will be synchronized shortly.`,
-          agent: 'Manager',
-          timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-        }]);
-      }, 1000);
+      let assistantMsgId = Date.now().toString();
+      
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(l => l.trim());
+        
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line);
+            
+            if (data.status === 'working') {
+                // Map "Lead Coder" -> "coder", "System Manager" -> "manager", etc.
+                const role = data.agent.toLowerCase();
+                const agentId = role.includes('manager') ? 'manager' : 
+                                role.includes('coder') ? 'coder' : 
+                                role.includes('researcher') ? 'researcher' : 
+                                role.includes('artist') ? 'artist' : 'manager';
+
+                setAgentStatus(prev => ({
+                    ...prev,
+                    [agentId]: {
+                        status: 'Computing',
+                        task: data.thought,
+                        timestamp: data.timestamp
+                    }
+                }));
+            } else if (data.status === 'completed') {
+                setIsLoading(false);
+                setMessages(prev => [...prev, { 
+                  role: 'assistant', 
+                  content: data.result,
+                  agent: data.agent || 'Manager',
+                  timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                }]);
+                
+                // Reset agent statuses
+                setAgentStatus(prev => {
+                    const newState = {...prev};
+                    Object.keys(newState).forEach(k => { newState[k].status = 'Idle'; newState[k].task = ''; });
+                    return newState;
+                });
+            }
+          } catch (e) {
+            console.error("Error parsing stream chunk", e);
+          }
+        }
+      }
     } catch (e) {
+      console.error("Chat error:", e);
       setIsLoading(false);
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: "Neural link interrupted. Please check backbone connectivity.",
+        agent: 'System',
+        timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+      }]);
     }
   };
 
@@ -382,11 +425,11 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 gap-2 mt-4">
                <div className="bg-white/5 p-2.5 rounded-2xl border border-white/5 text-center">
                   <p className="text-[8px] text-slate-600 font-black uppercase">VRAM</p>
-                  <p className="text-[10px] font-black text-slate-200">{telemetry.vram}</p>
+                  <p className="text-[10px] font-black text-slate-200">{telemetry.vram} MiB</p>
                </div>
                <div className="bg-white/5 p-2.5 rounded-2xl border border-white/5 text-center">
                   <p className="text-[8px] text-slate-600 font-black uppercase">Temp</p>
-                  <p className="text-[10px] font-black text-orange-400">{telemetry.temp}</p>
+                  <p className="text-[10px] font-black text-orange-400">{telemetry.temp}°C</p>
                </div>
             </div>
 
@@ -517,16 +560,24 @@ export default function Dashboard() {
           )}
           
           {isLoading && (
-             <div className="flex gap-5 max-w-3xl">
-               <div className="w-10 h-10 rounded-2xl bg-[#3c83f6]/10 flex items-center justify-center shrink-0 animate-spin transition-all duration-2000">
-                 <span className="material-symbols-outlined text-[#3c83f6] text-lg">sync</span>
+             <div className="flex gap-5 max-w-3xl animate-in fade-in duration-500">
+               <div className="w-10 h-10 rounded-2xl bg-[#3c83f6]/10 flex items-center justify-center shrink-0">
+                 <span className="material-symbols-outlined text-[#3c83f6] text-lg animate-spin">sync</span>
                </div>
-               <div className="space-y-2">
-                 <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Neural Computation In-Progress</p>
-                 <div className="bg-white/5 p-5 rounded-[2rem] rounded-tl-none border border-white/5 flex gap-2 items-center">
-                    <span className="w-2 h-2 bg-[#3c83f6] rounded-full animate-bounce shadow-[0_0_10px_#3c83f6]" style={{ animationDelay: '0ms' }}></span>
-                    <span className="w-2 h-2 bg-[#3c83f6] rounded-full animate-bounce shadow-[0_0_10px_#3c83f6]" style={{ animationDelay: '200ms' }}></span>
-                    <span className="w-2 h-2 bg-[#3c83f6] rounded-full animate-bounce shadow-[0_0_10px_#3c83f6]" style={{ animationDelay: '400ms' }}></span>
+               <div className="space-y-3 flex-1">
+                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>
+                    Neural Computation In-Progress
+                 </p>
+                 <div className="bg-white/[0.03] p-6 rounded-[2rem] rounded-tl-none border border-white/10 shadow-2xl">
+                    <p className="text-xs text-slate-400 font-medium italic leading-relaxed">
+                       {Object.values(agentStatus).find(s => s.status === 'Computing')?.task || "Synchronizing with collective brain..."}
+                    </p>
+                    <div className="mt-4 flex gap-1.5">
+                       <span className="w-1.5 h-1.5 bg-[#3c83f6]/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                       <span className="w-1.5 h-1.5 bg-[#3c83f6]/40 rounded-full animate-bounce" style={{ animationDelay: '200ms' }}></span>
+                       <span className="w-1.5 h-1.5 bg-[#3c83f6]/40 rounded-full animate-bounce" style={{ animationDelay: '400ms' }}></span>
+                    </div>
                  </div>
                </div>
              </div>

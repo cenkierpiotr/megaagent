@@ -44,13 +44,11 @@ class TelemetryCollector:
                 handle = pynvml.nvmlDeviceGetHandleByIndex(0)
                 util = pynvml.nvmlDeviceGetUtilizationRates(handle)
                 stats["gpu_util"] = util.gpu
-                # If governor didn't get vram/temp, NVML can supplement
-                if stats["vram"] == "N/A":
+                if stats["vram"] == 0:
                     mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
-                    stats["vram"] = f"{round(mem.used / (1024**3), 1)} GiB / {round(mem.total / (1024**3), 1)} GiB"
-                if stats["temp"] == "N/A":
-                    temp = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
-                    stats["temp"] = f"{temp}°C"
+                    stats["vram"] = round(mem.used / (1024**2), 0) # MiB
+                if stats["temp"] == 0:
+                    stats["temp"] = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
             except Exception as e:
                 print(f"GPU Telemetry fallback error: {e}")
 

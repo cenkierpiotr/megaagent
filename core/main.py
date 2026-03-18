@@ -110,7 +110,26 @@ class ClawCore:
             print(f"🔴 VRAM Purge Failed: {e}")
             return False
 
-    def create_crew(self, task_desc, capability, models):
+    def create_crew(self, task_desc, capability, models, stream_id=None):
+        def stream_callback(step):
+            if stream_id:
+                try:
+                    # step is a CrewStep or similar
+                    agent_name = "Agent"
+                    thought = str(step)
+                    if hasattr(step, 'agent'): agent_name = step.agent.role
+                    
+                    payload = {
+                        "status": "working",
+                        "agent": agent_name,
+                        "thought": thought,
+                        "stream_id": stream_id,
+                        "timestamp": datetime.now().timestamp()
+                    }
+                    self.r.publish(f"chat_status:{stream_id}", json.dumps(payload))
+                except Exception as e:
+                    print(f"Stream callback error: {e}")
+
         # Define the Trinity + Manager
         manager = Agent(
             role='System Manager',
@@ -162,7 +181,8 @@ class ClawCore:
         return Crew(
             agents=[manager, coder, researcher, artist],
             tasks=[main_task],
-            process=Process.sequential
+            process=Process.sequential,
+            step_callback=stream_callback
         )
 
     async def task_worker(self):
@@ -189,19 +209,42 @@ class ClawCore:
                         await self.clear_vram(model_to_purge)
                         continue
 
+                    # VRAM Reservation for heavy tasks
+                    if capability in ['graphics', 'video', 'audio']:
+                        await self.clear_vram(models.get('manager', 'llama3'))
+                        if stream_id:
+                            self.r.publish(f"chat_status:{stream_id}", json.dumps({
+                                "status": "working", 
+                                "agent": "System Manager", 
+                                "thought": "Reserving VRAM for multimodal execution. Purging background models..."
+                            }))
+
                     # Execute Crew
-                    crew = self.create_crew(prompt, capability, models)
+                    stream_id = task_data.get('stream_id')
+                    if stream_id:
+                        self.r.publish(f"chat_status:{stream_id}", json.dumps({"status": "starting", "message": "Neural synchronization sequence initiated."}))
+                    
+                    crew = self.create_crew(prompt, capability, models, stream_id=stream_id)
                     result = crew.kickoff()
                     
                     # Log to DB
                     self.log_to_db(task_data, result)
 
-                    # Publish result
+                    # Publish final result to stream
+                    if stream_id:
+                        self.r.publish(f"chat_status:{stream_id}", json.dumps({
+                            "status": "completed", 
+                            "result": str(result),
+                            "agent": "System Manager"
+                        }))
+
+                    # Publish result to general channel
                     res_payload = {
                         "source": source,
                         "chat_id": task_data.get("chat_id"),
                         "result": str(result),
-                        "capability": capability
+                        "capability": capability,
+                        "stream_id": stream_id
                     }
                     self.r.publish('task_results', json.dumps(res_payload))
                     
