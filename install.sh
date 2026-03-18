@@ -81,6 +81,7 @@ PROJECT_NAME=Megabot-Consolidated
 DOMAIN=localhost
 TELEGRAM_BOT_TOKEN=${TG_TOKEN}
 SERPER_API_KEY=${SERPER_KEY}
+OPENAI_API_KEY=sk-placeholder-since-we-use-ollama
 OLLAMA_BASE_URL=http://claw-litellm:11434
 REDIS_URL=redis://claw-redis:6379/0
 POSTGRES_USER=claw

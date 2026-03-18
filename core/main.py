@@ -1,6 +1,8 @@
 import os
 os.environ["CREWAI_DISABLE_TELEMETRY"] = "true"
 os.environ["OTEL_SDK_DISABLED"] = "true"
+# Force dummy key to bypass CrewAI native provider validation when using Ollama
+os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY", "sk-placeholder-for-ollama")
 
 import redis
 import json
