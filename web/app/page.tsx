@@ -718,9 +718,9 @@ export default function Dashboard() {
                               }} 
                               className="bg-zinc-900 border border-zinc-700/50 rounded-xl px-2 py-3 text-[10px] font-black uppercase outline-none text-zinc-400"
                             >
-                              <option value="ollama">Ollama</option>
-                              <option value="litellm">LiteLLM</option>
-                              <option value="openai">OpenAI</option>
+                              <option value="ollama" className="bg-zinc-900 text-white">Ollama</option>
+                              <option value="litellm" className="bg-zinc-900 text-white">LiteLLM</option>
+                              <option value="openai" className="bg-zinc-900 text-white">OpenAI</option>
                             </select>
                             <input 
                               type="text" 
