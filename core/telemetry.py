@@ -7,9 +7,9 @@ from datetime import datetime
 # Optional NVIDIA support
 try:
     import pynvml
-    HAS_NVML = True
     pynvml.nvmlInit()
-except ImportError:
+    HAS_NVML = True
+except Exception:
     HAS_NVML = False
 
 class TelemetryCollector:

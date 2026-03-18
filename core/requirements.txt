@@ -9,3 +9,4 @@ pynvml
 fastapi
 uvicorn
 python-multipart
+litellm

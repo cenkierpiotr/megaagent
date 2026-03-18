@@ -19,7 +19,7 @@ app = FastAPI()
 
 class ClawCore:
     def __init__(self):
-        self.redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        self.redis_url = os.getenv("REDIS_URL", "redis://claw-redis:6379/0")
         self.r = redis.Redis.from_url(self.redis_url, decode_responses=True)
         self.governor = HardenedGovernor(self.redis_url)
         self.telemetry = TelemetryCollector(self.r, self.governor)
@@ -89,8 +89,7 @@ class ClawCore:
         final_model = config['model'] if model_name in ['llama3', 'llama3:3b', 'codellama'] else model_name
         return Ollama(
             model=final_model, 
-            base_url=base_url,
-            options=config.get('options', {})
+            base_url=base_url
         )
 
     async def update_agent_status(self, agent_name, status, task_desc=""):
@@ -139,7 +138,7 @@ class ClawCore:
             role='System Manager',
             goal='Orchestrate the AI fleet and maintain system stability.',
             backstory='Supreme coordinator of Claw-Omni-OS.',
-            llm=self.get_llm(models.get('manager', 'llama3')),
+            llm=self.get_llm(models.get('manager') or 'llama3'),
             tools=get_manager_tools(),
             verbose=True
         )
@@ -148,7 +147,7 @@ class ClawCore:
             role='Lead Coder',
             goal='Execute technical implementations, code audits, and system diagnostics.',
             backstory='Elite developer with full system access and SSH diagnostic capabilities.',
-            llm=self.get_llm(models.get('coder', 'codellama')),
+            llm=self.get_llm(models.get('coder') or 'codellama'),
             tools=get_coder_tools(),
             verbose=True
         )
@@ -157,7 +156,7 @@ class ClawCore:
             role='Deep Researcher',
             goal='Analyze web data, search for information, and extract complex intelligence.',
             backstory='Expert analyst with live web search access and retrieval capabilities.',
-            llm=self.get_llm(models.get('researcher', 'mistral')),
+            llm=self.get_llm(models.get('researcher') or 'mistral'),
             tools=get_researcher_tools(),
             verbose=True
         )
@@ -166,7 +165,7 @@ class ClawCore:
             role='Visual Artisan',
             goal='Generate high-fidelity visual and multimodal content.',
             backstory='Master of creative neural workflows.',
-            llm=self.get_llm(models.get('artist', 'llava')),
+            llm=self.get_llm(models.get('artist') or 'llava'),
             verbose=True
         )
 
@@ -204,6 +203,7 @@ class ClawCore:
                     source = task_data.get('source', 'web') # Default to web
                     capability = task_data.get('capability', 'text')
                     prompt = task_data.get('prompt', '')
+                    stream_id = task_data.get('stream_id')
                     models = {
                         'manager': task_data.get('model_manager'),
                         'coder': task_data.get('model_coder'),
@@ -247,7 +247,6 @@ class ClawCore:
                         await self.clear_vram(models.get('manager', 'llama3'))
 
                     # ─── Execute Crew ───────────────────────────────────────
-                    stream_id = task_data.get('stream_id')
                     if stream_id:
                         self.r.publish(f"chat_status:{stream_id}", json.dumps({"status": "starting", "message": "Neural synchronization sequence initiated."}))
                     

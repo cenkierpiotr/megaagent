@@ -42,7 +42,7 @@ class HardenedGovernor:
             
         config = {
             "model": os.getenv("LLM_MODEL", "llama3"),
-            "options": {"num_gpu": 1 if use_gpu else 0}
+            "options": {}
         }
         
         # Graceful Degradation: Switch to lighter model if on CPU

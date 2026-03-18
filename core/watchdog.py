@@ -7,8 +7,8 @@ import os
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - watchdog - %(levelname)s - %(message)s')
 
 SERVICES = {
-    "claw_core": "http://core:5000/health",
-    "claw_multimodal": "http://multimodal:5001/health",
+    "claw_core": "http://claw-core:8000/api/health-check",
+    "claw_multimodal": "http://claw-multimodal:5001/health",
     "ollama": "http://host.docker.internal:11434/api/tags"
 }
 

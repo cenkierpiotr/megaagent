@@ -15,7 +15,7 @@ class ClawBot:
     def __init__(self):
         self.token = os.getenv("TELEGRAM_BOT_TOKEN")
         self.admin_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
-        self.redis_client = redis.Redis.from_url(os.getenv("REDIS_URL", "redis://redis:6379/0"))
+        self.redis_client = redis.Redis.from_url(os.getenv("REDIS_URL", "redis://claw-redis:6379/0"))
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("👋 Welcome to Claw-Omni-OS. Awaiting commands.")
@@ -51,7 +51,7 @@ class ClawBot:
             "prompt": text,
             "priority": "P2"
         }
-        self.redis_client.lpush("tasks:p2", str(task))
+        self.redis_client.lpush("tasks:p2", json.dumps(task))
 
     async def listen_for_results(self, application):
         pubsub = self.redis_client.pubsub()
