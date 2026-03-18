@@ -361,7 +361,7 @@ export default function Dashboard() {
         const found = data.options[0];
         setProviders(prev => {
           if (prev.some(p => p.url === found.url)) return prev;
-          return [...prev, { type: 'ollama', url: found.url, apiKey: '' }];
+          return [...prev, { type: found.type || 'ollama', url: found.url, apiKey: '' }];
         });
         setTestResult({ status: 'success', message: `Magic! Appended Ollama on port ${found.port} to Nodes list.` });
         setOllamaStatus('connected');
@@ -716,7 +716,7 @@ export default function Dashboard() {
                                 next[idx].type = e.target.value;
                                 setProviders(next);
                               }} 
-                              className="bg-zinc-900 border border-zinc-700/50 rounded-xl px-2 py-3 text-[10px] font-black uppercase outline-none text-zinc-400"
+                              className="bg-zinc-950 text-white border border-zinc-700/50 rounded-xl px-2 py-3 text-[10px] font-black uppercase outline-none"
                             >
                               <option value="ollama" className="bg-zinc-900 text-white">Ollama</option>
                               <option value="litellm" className="bg-zinc-900 text-white">LiteLLM</option>
@@ -807,7 +807,7 @@ export default function Dashboard() {
                                     <select 
                                         value={cfg.val} 
                                         onChange={(e) => cfg.set(e.target.value)} 
-                                        className={`flex-1 bg-zinc-900 border rounded-2xl p-4 text-xs font-bold focus:border-blue-500 outline-none ${!models.includes(cfg.val) ? 'text-rose-400 border-rose-500' : 'text-emerald-400 border-zinc-700'}`}
+                                        className={`flex-1 bg-zinc-950 text-white border rounded-2xl p-4 text-xs font-bold focus:border-blue-500 outline-none ${!models.includes(cfg.val) ? 'text-rose-400 border-rose-500' : 'text-emerald-400 border-zinc-700'}`}
                                     >
                                         {models.length > 0 ? models.map(m => (
                                             <option key={m} value={m} className="bg-zinc-900 text-white">
