@@ -56,6 +56,8 @@ export default function Dashboard() {
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [testResult, setTestResult] = useState<{status: string, message: string} | null>(null);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [isAuditLogsOpen, setIsAuditLogsOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -71,6 +73,16 @@ export default function Dashboard() {
       clearInterval(resultsInterval);
     };
   }, []);
+
+  const fetchAuditLogs = async () => {
+    try {
+      const res = await fetch('/api/audit-logs');
+      const data = await res.json();
+      setAuditLogs(data.logs || []);
+    } catch (e) {
+      console.error("Failed to fetch audit logs");
+    }
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -457,9 +469,9 @@ export default function Dashboard() {
         {/* Header */}
         <header className="flex items-center justify-between py-4 px-8 glass-morphism rounded-[2.5rem] mb-6 shadow-2xl">
           <nav className="flex gap-8">
-            <button className="text-xs font-black uppercase tracking-widest text-[#3c83f6]" onClick={() => {setMessages([]); setIsGalleryOpen(false)}}>Workspace</button>
-            <button className={`text-xs font-black uppercase tracking-widest transition-colors ${isGalleryOpen ? 'text-[#3c83f6]' : 'text-slate-500 hover:text-slate-200'}`} onClick={() => setIsGalleryOpen(!isGalleryOpen)}>Media Hub</button>
-            <button className="text-xs font-black uppercase tracking-widest text-slate-500 hover:text-slate-200 transition-colors" onClick={() => triggerAction('sys_check', 'Diagnostic')}>Audit Logs</button>
+            <button className={`text-xs font-black uppercase tracking-widest transition-colors ${!isGalleryOpen && !isAuditLogsOpen ? 'text-[#3c83f6]' : 'text-slate-500 hover:text-slate-200'}`} onClick={() => {setIsGalleryOpen(false); setIsAuditLogsOpen(false);}}>Workspace</button>
+            <button className={`text-xs font-black uppercase tracking-widest transition-colors ${isGalleryOpen ? 'text-[#3c83f6]' : 'text-slate-500 hover:text-slate-200'}`} onClick={() => { setIsGalleryOpen(!isGalleryOpen); setIsAuditLogsOpen(false); }}>Media Hub</button>
+            <button className={`text-xs font-black uppercase tracking-widest transition-colors ${isAuditLogsOpen ? 'text-[#3c83f6]' : 'text-slate-500 hover:text-slate-200'}`} onClick={() => { setIsAuditLogsOpen(true); setIsGalleryOpen(false); fetchAuditLogs(); }}>Audit Logs</button>
           </nav>
           
           <div className="flex items-center gap-6">
@@ -476,7 +488,36 @@ export default function Dashboard() {
 
         {/* Content */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 space-y-8 mb-36 custom-scrollbar">
-          {isGalleryOpen ? (
+          {isAuditLogsOpen ? (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-500 pb-20">
+               <div className="flex items-center justify-between mb-10">
+                  <h2 className="text-3xl font-black uppercase tracking-tighter italic">Agent Artifacts</h2>
+                  <div className="px-4 py-1 bg-white/5 rounded-full text-[10px] font-bold text-slate-500 uppercase tracking-widest">{auditLogs.length} Records</div>
+               </div>
+               {auditLogs.length === 0 ? (
+                 <div className="flex flex-col items-center justify-center py-32 text-slate-700 border-2 border-dashed border-white/[0.03] rounded-[3rem] bg-white/[0.01]">
+                    <span className="material-symbols-outlined text-5xl mb-4 opacity-20">terminal</span>
+                    <p className="text-xs font-black uppercase tracking-widest">No audit logs yet. Run a System Check or Code Audit.</p>
+                    <button onClick={() => triggerAction('sys_check', 'System Diagnostic')} className="mt-6 px-6 py-3 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-xs font-black text-blue-400 uppercase tracking-widest hover:bg-blue-500/20 transition-all">Run Diagnostic</button>
+                 </div>
+               ) : (
+                 <div className="space-y-6">
+                   {auditLogs.map((log, i) => (
+                     <div key={i} className="p-6 rounded-[2rem] bg-white/[0.02] border border-white/[0.06] shadow-xl">
+                       <div className="flex items-center justify-between mb-4">
+                         <div className="flex items-center gap-3">
+                           <span className="material-symbols-outlined text-emerald-400 text-lg">task_alt</span>
+                           <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">{log.type || 'Agent Output'}</span>
+                         </div>
+                         <span className="text-[9px] text-slate-600 font-bold">{log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : ''}</span>
+                       </div>
+                       <pre className="text-xs text-slate-300 font-mono leading-relaxed bg-black/40 p-5 rounded-2xl overflow-x-auto border border-white/5 whitespace-pre-wrap">{log.output || JSON.stringify(log, null, 2)}</pre>
+                     </div>
+                   ))}
+                 </div>
+               )}
+            </div>
+          ) : isGalleryOpen ? (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500 pb-20">
                <div className="flex items-center justify-between mb-10">
                   <h2 className="text-3xl font-black uppercase tracking-tighter italic">Generated Assets</h2>

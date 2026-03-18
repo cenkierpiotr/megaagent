@@ -5,11 +5,12 @@ import asyncio
 import requests
 import psycopg2
 from datetime import datetime
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI
 from crewai import Agent, Task, Crew, Process
 from langchain_community.llms import Ollama
 from telemetry import TelemetryCollector
 from governor import HardenedGovernor
+from tools import get_coder_tools, get_researcher_tools, get_manager_tools
 
 app = FastAPI()
 
@@ -130,28 +131,31 @@ class ClawCore:
                 except Exception as e:
                     print(f"Stream callback error: {e}")
 
-        # Define the Trinity + Manager
+        # Define the Trinity + Manager (with real tools)
         manager = Agent(
             role='System Manager',
             goal='Orchestrate the AI fleet and maintain system stability.',
             backstory='Supreme coordinator of Claw-Omni-OS.',
             llm=self.get_llm(models.get('manager', 'llama3')),
+            tools=get_manager_tools(),
             verbose=True
         )
         
         coder = Agent(
             role='Lead Coder',
-            goal='Execute technical implementations and audits.',
-            backstory='Elite developer with full system access.',
+            goal='Execute technical implementations, code audits, and system diagnostics.',
+            backstory='Elite developer with full system access and SSH diagnostic capabilities.',
             llm=self.get_llm(models.get('coder', 'codellama')),
+            tools=get_coder_tools(),
             verbose=True
         )
 
         researcher = Agent(
             role='Deep Researcher',
-            goal='Analyze web data and extract complex information.',
-            backstory='Expert analyst with advanced retrieval capabilities.',
+            goal='Analyze web data, search for information, and extract complex intelligence.',
+            backstory='Expert analyst with live web search access and retrieval capabilities.',
             llm=self.get_llm(models.get('researcher', 'mistral')),
+            tools=get_researcher_tools(),
             verbose=True
         )
 
@@ -206,20 +210,40 @@ class ClawCore:
                     
                     if task_data.get('direct_action') == 'clear_vram':
                         model_to_purge = models.get('manager', 'llama3')
-                        await self.clear_vram(model_to_purge)
-                        continue
-
-                    # VRAM Reservation for heavy tasks
-                    if capability in ['graphics', 'video', 'audio']:
-                        await self.clear_vram(models.get('manager', 'llama3'))
+                        success = await self.clear_vram(model_to_purge)
                         if stream_id:
                             self.r.publish(f"chat_status:{stream_id}", json.dumps({
-                                "status": "working", 
-                                "agent": "System Manager", 
-                                "thought": "Reserving VRAM for multimodal execution. Purging background models..."
+                                "status": "completed",
+                                "result": f"✅ VRAM Purge complete for {model_to_purge}." if success else "⚠️ VRAM Purge failed — model may not be loaded.",
+                                "agent": "System Manager"
                             }))
+                        continue
 
-                    # Execute Crew
+                    if task_data.get('direct_action') == 'sys_check':
+                        # Quick system health check via coder tool
+                        from tools import SSHAuditTool
+                        tool = SSHAuditTool()
+                        health_out = tool._run("df -h && free -h && uptime")
+                        if stream_id:
+                            self.r.publish(f"chat_status:{stream_id}", json.dumps({
+                                "status": "completed",
+                                "result": f"**System Health Report**\n\n{health_out}",
+                                "agent": "Lead Coder"
+                            }))
+                        # Store as Audit Log artifact
+                        self.r.lpush("audit_logs", json.dumps({
+                            "type": "sys_check",
+                            "output": health_out,
+                            "timestamp": datetime.now().isoformat()
+                        }))
+                        self.r.ltrim("audit_logs", 0, 99)
+                        continue
+
+                    # VRAM Reservation for heavy tasks (FIXED: moved before stream_id init)
+                    if capability in ['graphics', 'video', 'audio']:
+                        await self.clear_vram(models.get('manager', 'llama3'))
+
+                    # ─── Execute Crew ───────────────────────────────────────
                     stream_id = task_data.get('stream_id')
                     if stream_id:
                         self.r.publish(f"chat_status:{stream_id}", json.dumps({"status": "starting", "message": "Neural synchronization sequence initiated."}))
